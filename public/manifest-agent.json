@@ -1,0 +1,28 @@
+{
+  "name": "Bus Go - Agent",
+  "short_name": "BusGo Agent",
+  "description": "Application de gestion d'embarquement pour les agents Bus Go",
+  "start_url": "/agent/trajets",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#f59e0b",
+  "orientation": "portrait-primary",
+  "scope": "/agent/",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["transport", "business"],
+  "lang": "fr",
+  "dir": "ltr"
+}

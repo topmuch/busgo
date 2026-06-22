@@ -83,6 +83,7 @@ async function main() {
       role: "client",
       tenantId: fastBus.id,
       isActive: true,
+      reliabilityScore: 95.0,
     },
   });
 
@@ -95,6 +96,46 @@ async function main() {
       role: "client",
       tenantId: fastBus.id,
       isActive: true,
+      reliabilityScore: 72.0,
+    },
+  });
+
+  const client3 = await prisma.user.create({
+    data: {
+      email: "mamadou@demo.com",
+      password: passwordHash,
+      name: "Mamadou Diallo",
+      phone: "+221 78 555 0000",
+      role: "client",
+      tenantId: fastBus.id,
+      isActive: true,
+      reliabilityScore: 88.0,
+    },
+  });
+
+  const client4 = await prisma.user.create({
+    data: {
+      email: "fatoumata@demo.com",
+      password: passwordHash,
+      name: "Fatoumata Touré",
+      phone: "+221 76 666 0000",
+      role: "client",
+      tenantId: fastBus.id,
+      isActive: true,
+      reliabilityScore: 60.0,
+    },
+  });
+
+  const client5 = await prisma.user.create({
+    data: {
+      email: "ousmane@demo.com",
+      password: passwordHash,
+      name: "Ousmane Ndiaye",
+      phone: "+221 77 777 0000",
+      role: "client",
+      tenantId: fastBus.id,
+      isActive: true,
+      reliabilityScore: 100.0,
     },
   });
 
@@ -122,7 +163,7 @@ async function main() {
     },
   });
 
-  console.log(`Created ${7} users`);
+  console.log(`Created ${9} users`);
 
   // --- Buses ---
   const bus1 = await prisma.bus.create({
@@ -140,6 +181,7 @@ async function main() {
       tenantId: fastBus.id,
       number: "FB-002",
       capacity: 35,
+      driverId: agent1.id,
       isActive: true,
     },
   });
@@ -157,8 +199,14 @@ async function main() {
 
   // --- Trajets ---
   const now = new Date();
-  const today = new Date(now);
-  today.setHours(now.getHours() + 2, 0, 0, 0); // 2h from now
+  const today1 = new Date(now);
+  today1.setHours(now.getHours() + 1, 0, 0, 0);
+
+  const today2 = new Date(now);
+  today2.setHours(now.getHours() + 3, 30, 0, 0);
+
+  const today3 = new Date(now);
+  today3.setHours(now.getHours() + 5, 0, 0, 0);
 
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -172,14 +220,16 @@ async function main() {
   in3Days.setDate(in3Days.getDate() + 3);
   in3Days.setHours(9, 0, 0, 0);
 
+  // Today's trajets assigned to agents
   const trajet1 = await prisma.trajet.create({
     data: {
       tenantId: fastBus.id,
       busId: bus1.id,
+      driverId: driver.id,
       origin: "Dakar",
       destination: "Saint-Louis",
-      date: today,
-      time: String(today.getHours()).padStart(2, "0") + ":00",
+      date: today1,
+      time: String(today1.getHours()).padStart(2, "0") + ":00",
       price: 5000,
       status: "scheduled",
     },
@@ -189,11 +239,26 @@ async function main() {
     data: {
       tenantId: fastBus.id,
       busId: bus2.id,
+      driverId: agent1.id,
       origin: "Dakar",
       destination: "Thiès",
-      date: today,
-      time: String(today.getHours() + 1).padStart(2, "0") + ":30",
+      date: today2,
+      time: String(today2.getHours()).padStart(2, "0") + ":30",
       price: 2000,
+      status: "scheduled",
+    },
+  });
+
+  const trajetToday3 = await prisma.trajet.create({
+    data: {
+      tenantId: fastBus.id,
+      busId: bus1.id,
+      driverId: driver.id,
+      origin: "Dakar",
+      destination: "Rufisque",
+      date: today3,
+      time: String(today3.getHours()).padStart(2, "0") + ":00",
+      price: 1500,
       status: "scheduled",
     },
   });
@@ -202,6 +267,7 @@ async function main() {
     data: {
       tenantId: fastBus.id,
       busId: bus1.id,
+      driverId: driver.id,
       origin: "Dakar",
       destination: "Saint-Louis",
       date: tomorrow,
@@ -215,6 +281,7 @@ async function main() {
     data: {
       tenantId: fastBus.id,
       busId: bus1.id,
+      driverId: driver.id,
       origin: "Saint-Louis",
       destination: "Dakar",
       date: dayAfter,
@@ -228,6 +295,7 @@ async function main() {
     data: {
       tenantId: fastBus.id,
       busId: bus2.id,
+      driverId: agent1.id,
       origin: "Dakar",
       destination: "Kaolack",
       date: in3Days,
@@ -259,40 +327,70 @@ async function main() {
   const generateQrCode = (ticketNumber: string) =>
     `qr_${ticketNumber.replace(/-/g, "_")}`;
 
-  const billet1 = await prisma.billet.create({
-    data: {
-      trajetId: trajet1.id,
-      clientId: client1.id,
-      seatNumber: 1,
-      ticketNumber: generateTicketNumber(1),
-      qrCode: generateQrCode("BG-TKT-0001"),
-      status: "sold",
-    },
-  });
+  const clients = [client1, client2, client3, client4, client5];
+  let billetIdx = 0;
 
-  const billet2 = await prisma.billet.create({
-    data: {
-      trajetId: trajet1.id,
-      clientId: client2.id,
-      seatNumber: 2,
-      ticketNumber: generateTicketNumber(2),
-      qrCode: generateQrCode("BG-TKT-0002"),
-      status: "sold",
-    },
-  });
+  // Trajet 1: 15 billets (various clients)
+  for (let i = 1; i <= 15; i++) {
+    billetIdx++;
+    await prisma.billet.create({
+      data: {
+        trajetId: trajet1.id,
+        clientId: clients[i % 5].id,
+        seatNumber: i,
+        ticketNumber: generateTicketNumber(billetIdx),
+        qrCode: generateQrCode(`BG-TKT-${String(billetIdx).padStart(4, "0")}`),
+        status: i <= 3 ? "boarded" : i === 14 ? "absent" : "sold",
+      },
+    });
+  }
 
-  const billet3 = await prisma.billet.create({
-    data: {
-      trajetId: trajet2.id,
-      clientId: client1.id,
-      seatNumber: 5,
-      ticketNumber: generateTicketNumber(3),
-      qrCode: generateQrCode("BG-TKT-0003"),
-      status: "sold",
-    },
-  });
+  // TrajetToday2: 10 billets
+  for (let i = 1; i <= 10; i++) {
+    billetIdx++;
+    await prisma.billet.create({
+      data: {
+        trajetId: trajetToday2.id,
+        clientId: clients[i % 5].id,
+        seatNumber: i,
+        ticketNumber: generateTicketNumber(billetIdx),
+        qrCode: generateQrCode(`BG-TKT-${String(billetIdx).padStart(4, "0")}`),
+        status: "sold",
+      },
+    });
+  }
 
-  console.log(`Created ${3} billets`);
+  // TrajetToday3: 8 billets
+  for (let i = 1; i <= 8; i++) {
+    billetIdx++;
+    await prisma.billet.create({
+      data: {
+        trajetId: trajetToday3.id,
+        clientId: clients[i % 5].id,
+        seatNumber: i,
+        ticketNumber: generateTicketNumber(billetIdx),
+        qrCode: generateQrCode(`BG-TKT-${String(billetIdx).padStart(4, "0")}`),
+        status: "sold",
+      },
+    });
+  }
+
+  // Trajet 2 (tomorrow): 5 billets
+  for (let i = 1; i <= 5; i++) {
+    billetIdx++;
+    await prisma.billet.create({
+      data: {
+        trajetId: trajet2.id,
+        clientId: clients[i % 5].id,
+        seatNumber: i,
+        ticketNumber: generateTicketNumber(billetIdx),
+        qrCode: generateQrCode(`BG-TKT-${String(billetIdx).padStart(4, "0")}`),
+        status: "sold",
+      },
+    });
+  }
+
+  console.log(`Created ${billetIdx} billets`);
 
   // --- VoiceConfig ---
   await prisma.voiceConfig.create({

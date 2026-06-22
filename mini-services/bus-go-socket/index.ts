@@ -113,6 +113,23 @@ io.on("connection", (socket) => {
     }
   );
 
+  // Client delay/retard notification
+  socket.on(
+    "client-retard",
+    (data: { trajetId: string; tenantId: string; clientId: string; minutes: number; message?: string; driverId: string }) => {
+      const retardMsg = data.message || `Le passager sera en retard de ${data.minutes} minutes`;
+      // Notify the driver directly
+      io.to(`tenant:${data.tenantId}`).emit("driver-retard", {
+        trajetId: data.trajetId,
+        clientId: data.clientId,
+        minutes: data.minutes,
+        message: retardMsg,
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`Retard notification: trajet=${data.trajetId}, ${data.minutes}min, driver notified`);
+    }
+  );
+
   socket.on("disconnect", () => {
     console.log(`Bus Go client disconnected: ${socket.id}`);
   });

@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { Bus, Ticket, LogOut, Bell, Search, User } from "lucide-react";
+import { Bus, LogOut, User, Wifi, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -33,32 +33,22 @@ export default async function ClientLayout({
     .slice(0, 2);
 
   const navItems = [
-    { href: "/client", label: "Rechercher", icon: Search },
-    { href: "/client/billets", label: "Mes billets", icon: Ticket },
-    { href: "/client/profile", label: "Mon profil", icon: User },
+    { href: "/client", label: "Mon voyage", icon: Bus },
+    { href: "/client/billets", label: "Historique", icon: User },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Top bar — minimal for mobile-first */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-14 items-center px-4 md:px-6">
+        <div className="flex h-14 items-center px-4">
           <Link href="/client" className="flex items-center gap-2 font-bold text-lg">
             <Bus className="h-5 w-5 text-primary" />
             <span>Bus Go</span>
           </Link>
 
-          <nav className="hidden md:flex ml-8 items-center gap-1">
-            {navItems.map((item) => (
-              <Link key={item.href} href={item.href}>
-                <Button variant="ghost" size="sm" className="gap-1.5 text-sm">
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Button>
-              </Link>
-            ))}
-          </nav>
-
           <div className="ml-auto flex items-center gap-2">
+            {/* Online indicator (client only meaningful) */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -76,13 +66,6 @@ export default async function ClientLayout({
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/client/profile" className="cursor-pointer">
-                    <User className="mr-2 h-4 w-4" />
-                    Mon profil
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
                   <Link href="/api/auth/signout" className="cursor-pointer">
                     <LogOut className="mr-2 h-4 w-4" />
                     Déconnexion
@@ -95,7 +78,7 @@ export default async function ClientLayout({
       </header>
 
       {/* Mobile bottom nav */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background pb-[env(safe-area-inset-bottom)]">
         <nav className="flex justify-around py-2">
           {navItems.map((item) => (
             <Link key={item.href} href={item.href}>
@@ -108,6 +91,7 @@ export default async function ClientLayout({
         </nav>
       </div>
 
+      {/* Main content */}
       <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6">{children}</main>
     </div>
   );

@@ -94,11 +94,16 @@ model Billet {
 // BilletStatus values: sold, boarded, absent, cancelled
 
 model VoiceConfig {
-  id         String   @id @default(cuid())
-  tenantId   String   @unique
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
-  introText  String
-  audioUrl   String?
-  language   String   @default("fr-FR")
-  createdAt  DateTime @default(now())
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  introText       String
+  audioUrl        String?
+  language        String   @default("fr-FR")
+  announceT15     Boolean  @default(true)
+  announceT5      Boolean  @default(true)
+  announceT2      Boolean  @default(true)
+  announceDelay   Boolean  @default(true)
+  announceArrival Boolean  @default(true)
+  createdAt       DateTime @default(now())
 }

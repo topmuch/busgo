@@ -1,8 +1,7 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { Bus, Users, Ticket, Building2, Settings, LogOut, Bell, ScanLine } from "lucide-react";
+import { Bus, Users, Ticket, LogOut, Bell, ScanLine, LayoutDashboard, Mic, FileBarChart2, Cog } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -34,12 +33,15 @@ export default async function AdminLayout({
     .slice(0, 2);
 
   const navItems = [
-    { href: "/admin", label: "Tableau de bord", icon: Bus },
+    { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/admin", label: "Vue d'ensemble", icon: Bus },
     { href: "/admin/guichet", label: "Guichet", icon: ScanLine },
     { href: "/admin/buses", label: "Bus", icon: Bus },
     { href: "/admin/trajets", label: "Trajets", icon: Ticket },
+    { href: "/admin/voix", label: "Voix & Annonces", icon: Mic },
+    { href: "/admin/rapports", label: "Rapports", icon: FileBarChart2 },
+    { href: "/admin/settings", label: "Paramètres", icon: Cog },
     { href: "/admin/users", label: "Utilisateurs", icon: Users },
-    { href: "/admin/tenants", label: "Mon Entreprise", icon: Building2 },
   ];
 
   return (
@@ -80,13 +82,6 @@ export default async function AdminLayout({
                     Rôle : {user.role}
                   </p>
                 </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/admin/settings" className="cursor-pointer">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Paramètres
-                  </Link>
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/api/auth/signout" className="cursor-pointer">

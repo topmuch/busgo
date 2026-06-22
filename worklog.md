@@ -1,27 +1,25 @@
 ---
 Task ID: 1
-Agent: Super Z (main)
-Task: Develop PWA Agent for Bus Go
+Agent: Main Agent
+Task: Développer le Dashboard SuperAdmin pour Bus Go
 
 Work Log:
-- Reviewed existing codebase: agent layout, Prisma schema, socket hook, auth config, seed data
-- Installed `html5-qrcode` library for QR scanning
-- Updated Prisma schema: added `driverId` + `driver` relation to Trajet, added `reliabilityScore` + `drivenTrajets` to User
-- Ran `prisma db push` + `prisma generate` to sync schema
-- Updated seed: 9 users (5 clients), 7 trajets (3 today with driverId assignment), 38 billets across trajets, varied statuses
-- Created 7 API routes for agent operations
-- Created 6 agent UI components
-- Created 2 main pages: /agent/trajets and /agent/embarquement/[trajetId]
-- Updated socket hook with driver-retard events, emit helpers, and infinite reconnection
-- Updated agent layout with mobile bottom nav, PWA provider integration
-- Created PWA manifest, service worker, offline store (IndexedDB), PWA registration hook
-- Generated PWA icons (192px, 512px)
-- Fixed API response format mismatch (scan route → flat fields)
-- Fixed trajets page data parsing (array vs wrapped object)
-- Fixed embarquement page socket listener timing (replaced direct listeners with hook-based state)
-- Verified: `next build` succeeds with all 25+ routes
+- Updated Prisma schema with 4 new models: Subscription, Invoice, SystemLog, NotificationTemplate
+- Pushed schema to SQLite and regenerated Prisma client
+- Updated seed data with 2 subscriptions, 8 invoices, 8 system logs, 7 notification templates
+- Updated superadmin layout: new sidebar with 5 nav items (Vue d'ensemble, Entreprises, Facturation, Analytique, Configuration), mobile Sheet support
+- Created 6 API routes: /api/superadmin/dashboard, /api/superadmin/tenants, /api/superadmin/tenants/[tenantId], /api/superadmin/[tenantId]/subscription, /api/superadmin/invoices, /api/superadmin/analytics, /api/superadmin/settings, /api/superadmin/impersonate
+- Enhanced /superadmin dashboard: 4 KPI cards (compagnies, MRR with growth %, bus, passagers), Recharts MRR area chart, alerts panel (failed payments, overdue invoices, inactive tenants), recent activity logs
+- Created /superadmin/tenants: card grid with search, detail dialog (subscription, users list, invoices), activate/deactivate toggle, plan change dialog, impersonate with confirmation and JWT token generation
+- Created /superadmin/billing: pricing banner (20 000 FCFA/bus), summary cards (revenue, pending, failed), filterable invoices table, status change dialog, "Relancer les impayés" action
+- Created /superadmin/analytics: 4 KPI cards, monthly bar chart (billets/boarded), boarding rate line chart, status breakdown badges, feature usage panel, ROI per company table
+- Created /superadmin/settings: 3 tabs (Templates, TTS, Logs), notification template table with edit/toggle, TTS config cards, filterable system logs table
+- Wrote 13 unit tests covering: authorization guards for all routes, dashboard KPI computation, alert detection, tenant CRUD, impersonation flow
+- Fixed Prisma relation errors (SystemLog has no tenant relation, Tenant has no billets count), fixed missing import (AlertTriangle)
+- Browser-verified all 5 pages render correctly with data
 
 Stage Summary:
-- Complete PWA Agent with 7 API routes, 6 reusable components, 2 pages
-- Features: QR scanning (html5-qrcode + Web Audio beeps), visual seat map (bus shape), departure timer, missing passenger management, real-time retard notifications, offline support (IndexedDB + SW), PWA installable
-- Files created: 20+ new files under src/app/api/agent/, src/components/agent/, src/app/(agent)/agent/, src/lib/, src/hooks/, public/
+- 4 new Prisma models, 8 new seed records
+- 8 API routes, 5 pages, 1 layout update
+- 13/13 tests passing, 0 new lint errors
+- All pages browser-verified: dashboard with charts, tenants with detail/impersonate, billing with invoices, analytics with charts, settings with templates/TTS/logs

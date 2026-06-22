@@ -11,6 +11,10 @@ async function main() {
   await prisma.trajet.deleteMany();
   await prisma.voiceConfig.deleteMany();
   await prisma.bus.deleteMany();
+  await prisma.notificationTemplate.deleteMany();
+  await prisma.systemLog.deleteMany();
+  await prisma.invoice.deleteMany();
+  await prisma.subscription.deleteMany();
   await prisma.user.deleteMany();
   await prisma.tenant.deleteMany();
 
@@ -410,6 +414,109 @@ async function main() {
   });
 
   console.log(`Created 1 voice config`);
+
+  // --- Subscriptions ---
+  const subNow = new Date();
+  const threeMonthsAgo = new Date(subNow);
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+  const nextMonth = new Date(subNow);
+  nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+  const subFastBus = await prisma.subscription.create({
+    data: {
+      tenantId: fastBus.id,
+      plan: "pro",
+      status: "active",
+      startDate: threeMonthsAgo,
+      endDate: nextMonth,
+      pricePerBus: 20000,
+      busCount: 2,
+      totalAmount: 2 * 20000,
+    },
+  });
+
+  const subSenegalVoyage = await prisma.subscription.create({
+    data: {
+      tenantId: senegalVoyage.id,
+      plan: "starter",
+      status: "active",
+      startDate: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+      endDate: nextMonth,
+      pricePerBus: 20000,
+      busCount: 1,
+      totalAmount: 1 * 20000,
+    },
+  });
+
+  console.log(`Created 2 subscriptions`);
+
+  // --- Invoices ---
+  const invoiceData = [];
+  for (let m = 0; m < 4; m++) {
+    const month = new Date(now.getFullYear(), now.getMonth() - (3 - m), 1);
+    const dueDay = new Date(month.getFullYear(), month.getMonth() + 1, 5);
+    invoiceData.push(
+      {
+        tenantId: fastBus.id,
+        subscriptionId: subFastBus.id,
+        number: `INV-FB-${String(month.getFullYear()).slice(2)}${String(month.getMonth() + 1).padStart(2, "0")}`,
+        amount: 2 * 20000,
+        status: m < 3 ? "paid" : "pending",
+        dueDate: dueDay,
+        paidAt: m < 3 ? new Date(month.getFullYear(), month.getMonth(), 15) : null,
+      },
+      {
+        tenantId: senegalVoyage.id,
+        subscriptionId: subSenegalVoyage.id,
+        number: `INV-SV-${String(month.getFullYear()).slice(2)}${String(month.getMonth() + 1).padStart(2, "0")}`,
+        amount: 1 * 20000,
+        status: m < 2 ? "paid" : m === 2 ? "failed" : "pending",
+        dueDate: dueDay,
+        paidAt: m < 2 ? new Date(month.getFullYear(), month.getMonth(), 12) : null,
+      }
+    );
+  }
+
+  for (const inv of invoiceData) {
+    await prisma.invoice.create({ data: inv });
+  }
+
+  console.log(`Created ${invoiceData.length} invoices`);
+
+  // --- System Logs ---
+  const logEntries = [
+    { level: "info", action: "tenant_created", message: "Entreprise FastBus Express créée", tenantId: fastBus.id },
+    { level: "info", action: "tenant_created", message: "Entreprise Sénégal Voyage créée", tenantId: senegalVoyage.id },
+    { level: "warning", action: "payment_failed", message: "Paiement échoué pour Sénégal Voyage - INV-SV-2605", tenantId: senegalVoyage.id },
+    { level: "info", action: "user_login", message: "Connexion superadmin@busgo.com", userId: superadmin.id },
+    { level: "error", action: "invoice_overdue", message: "Facture INV-SV-2606 en retard", tenantId: senegalVoyage.id },
+    { level: "info", action: "subscription_renewed", message: "Abonnement FastBus Express renouvelé", tenantId: fastBus.id },
+    { level: "warning", action: "tenant_inactive", message: "Sénégal Voyage marquée inactive temporairement", tenantId: senegalVoyage.id },
+    { level: "info", action: "plan_upgraded", message: "FastBus Express mis à niveau vers le plan Pro", tenantId: fastBus.id },
+  ];
+
+  for (const log of logEntries) {
+    await prisma.systemLog.create({ data: log });
+  }
+
+  console.log(`Created ${logEntries.length} system logs`);
+
+  // --- Notification Templates ---
+  const templates = [
+    { type: "email", event: "boarding_reminder", subject: "Rappel d'embarquement", body: "Bonjour {{clientName}}, votre trajet {{origin}} → {{destination}} départ à {{time}}. N'oubliez pas d'arriver 15 min en avance.", isActive: true },
+    { type: "email", event: "delay_alert", subject: "Retard signalé", body: "Bonjour {{clientName}}, votre trajet {{origin}} → {{destination}} est retardé de {{delayMinutes}} minutes.", isActive: true },
+    { type: "email", event: "arrival_notice", subject: "Arrivée à destination", body: "Bonjour {{clientName}}, votre trajet est arrivé à {{destination}}. Merci d'avoir voyagé avec nous !", isActive: true },
+    { type: "email", event: "payment_reminder", subject: "Rappel de paiement", body: "Bonjour, votre facture {{invoiceNumber}} d'un montant de {{amount}} FCFA est due le {{dueDate}}.", isActive: true },
+    { type: "email", event: "welcome", subject: "Bienvenue sur Bus Go", body: "Bonjour {{name}}, votre compte a été créé avec succès. Bienvenue sur la plateforme Bus Go !", isActive: true },
+    { type: "sms", event: "boarding_reminder", subject: null, body: "Bus Go: Votre trajet {{origin}}-{{destination}} depart a {{time}}. Arrivez 15 min en avance.", isActive: true },
+    { type: "sms", event: "delay_alert", subject: null, body: "Bus Go: Retard de {{delayMinutes}} min pour {{origin}}-{{destination}}.", isActive: true },
+  ];
+
+  for (const tpl of templates) {
+    await prisma.notificationTemplate.create({ data: { ...tpl, tenantId: null } });
+  }
+
+  console.log(`Created ${templates.length} notification templates`);
 
   // --- Summary ---
   console.log("\n--- Seed Summary ---");

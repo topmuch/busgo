@@ -17,10 +17,13 @@ model Tenant {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  users        User[]
-  buses        Bus[]
-  trajets      Trajet[]
-  voiceConfigs VoiceConfig[]
+  users                User[]
+  buses                Bus[]
+  trajets              Trajet[]
+  voiceConfigs         VoiceConfig[]
+  subscriptions        Subscription[]
+  invoices             Invoice[]
+  notificationTemplates NotificationTemplate[]
 }
 
 model User {
@@ -106,4 +109,62 @@ model VoiceConfig {
   announceDelay   Boolean  @default(true)
   announceArrival Boolean  @default(true)
   createdAt       DateTime @default(now())
+}
+
+// SubscriptionStatus values: active, trial, expired, cancelled
+model Subscription {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  plan         String   @default("starter")
+  status       String   @default("active")
+  startDate    DateTime @default(now())
+  endDate      DateTime
+  pricePerBus  Int      @default(20000)
+  busCount     Int      @default(0)
+  totalAmount  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  invoices     Invoice[]
+}
+
+// InvoiceStatus values: paid, pending, failed, overdue
+model Invoice {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  subscriptionId String
+  subscription  Subscription @relation(fields: [subscriptionId], references: [id])
+  number        String   @unique
+  amount        Int
+  status        String   @default("pending")
+  dueDate       DateTime
+  paidAt        DateTime?
+  createdAt     DateTime @default(now())
+}
+
+// LogLevel values: info, warning, error
+model SystemLog {
+  id        String   @id @default(cuid())
+  level     String   @default("info")
+  action    String
+  message   String
+  userId    String?
+  tenantId  String?
+  metadata  String?
+  createdAt DateTime @default(now())
+}
+
+// NotificationEvent values: boarding_reminder, delay_alert, arrival_notice, payment_reminder, welcome, subscription_expiry
+model NotificationTemplate {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+  type      String   @default("email")
+  event     String
+  subject   String?
+  body      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

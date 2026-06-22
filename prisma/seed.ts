@@ -231,6 +231,7 @@ async function main() {
       date: today1,
       time: String(today1.getHours()).padStart(2, "0") + ":00",
       price: 5000,
+      zone: "Quai A1",
       status: "scheduled",
     },
   });
@@ -245,6 +246,7 @@ async function main() {
       date: today2,
       time: String(today2.getHours()).padStart(2, "0") + ":30",
       price: 2000,
+      zone: "Quai B3",
       status: "scheduled",
     },
   });
@@ -259,6 +261,7 @@ async function main() {
       date: today3,
       time: String(today3.getHours()).padStart(2, "0") + ":00",
       price: 1500,
+      zone: "Quai A2",
       status: "scheduled",
     },
   });
@@ -273,6 +276,7 @@ async function main() {
       date: tomorrow,
       time: "08:00",
       price: 5000,
+      zone: "Quai A1",
       status: "scheduled",
     },
   });
@@ -287,6 +291,7 @@ async function main() {
       date: dayAfter,
       time: "07:30",
       price: 5000,
+      zone: "Quai C1",
       status: "scheduled",
     },
   });
@@ -301,6 +306,7 @@ async function main() {
       date: in3Days,
       time: "09:00",
       price: 3500,
+      zone: "Quai B1",
       status: "scheduled",
     },
   });
@@ -314,6 +320,7 @@ async function main() {
       date: in3Days,
       time: "06:00",
       price: 8000,
+      zone: "Quai D1",
       status: "scheduled",
     },
   });

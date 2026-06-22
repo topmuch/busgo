@@ -138,3 +138,48 @@
 .animate-slide-in-right {
   animation: slide-in-right 0.3s ease-out;
 }
+
+/* ---- Display Screen (TV) Animations ---- */
+
+@keyframes announcement-in {
+  0% { opacity: 0; transform: translateY(-100%); }
+  10% { opacity: 1; transform: translateY(0); }
+  90% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-100%); }
+}
+
+.animate-announcement-in {
+  animation: announcement-in 15s ease-in-out forwards;
+}
+
+@keyframes loading-bar {
+  0% { width: 0%; }
+  50% { width: 70%; }
+  100% { width: 100%; }
+}
+
+.animate-loading-bar {
+  animation: loading-bar 3s ease-in-out infinite;
+}
+
+/* Kiosk mode: hide cursor, disable selection, prevent scroll */
+.ecran-kiosk {
+  cursor: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+}
+
+.ecran-kiosk * {
+  cursor: none !important;
+}
+
+.ecran-kiosk::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ensure full viewport without scrollbars */
+html.kiosk-mode {
+  overflow: hidden;
+  touch-action: none;
+}

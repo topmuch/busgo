@@ -70,6 +70,7 @@ model Trajet {
   date        DateTime
   time        String
   price       Int
+  zone        String?
   status      String   @default("scheduled")
   createdAt   DateTime @default(now())
   billets     Billet[]

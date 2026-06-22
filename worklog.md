@@ -1,32 +1,30 @@
 ---
-Task ID: 2
+Task ID: 1
 Agent: Main Agent
-Task: Développer la Webapp Guichetier pour Bus Go
+Task: Développer la Webapp Guichetier pour Bus Go — Phase 2
 
 Work Log:
-- Installed qrcode + papaparse libraries
-- Created SeatSelector component (visual 2+2 bus layout with driver seat, occupied/selected/free states)
-- Created QRCodeDisplay component (canvas-based QR gen via qrcode lib, print popup with ticket layout, mandatory scan warning)
-- Created API routes:
-  - POST /api/billets/create-guichet (auto-creates client + billet + QR URL)
-  - GET/POST /api/trajets (list with date/status filters + create)
-  - PATCH/DELETE /api/trajets/[id] (status update + delete with cascade)
-  - GET/POST /api/buses (list + create with uniqueness check)
-  - PUT/DELETE /api/buses/[id] (update + delete with active trajet check)
-  - POST /api/trajets/import-csv (PapaParse CSV import with auto-client creation)
-  - GET /api/drivers (list agent/admin users for driver assignment)
-- Created 3 admin pages:
-  - /admin/guichet: Quick ticket form, trajet dropdown, seat selector, QR display, print, Ctrl+Enter shortcut
-  - /admin/trajets: CRUD, status workflow (scheduled→boarding→departed→arrived), passenger dialog, CSV import
-  - /admin/buses: Card grid CRUD, driver assignment, capacity/trajet counts
-- Updated admin sidebar nav (added Guichet with ScanLine icon)
-- Updated seed to include 2 today's trajets for guichet testing
-- Verified full guichet flow: login→admin→guichet→fill form→select trajet→pick seat→generate QR→see QR+warning→print button→reset
-- All ESLint clean
+- Reviewed all existing files: components, API routes, pages, schema, auth
+- Found and fixed 3 bugs:
+  1. Trajets API: `dateFilter` query param mismatch (pages sent `dateFilter=today`, API read `date`). Also added support for `upcoming` and `all` filters.
+  2. QR code URL in `/api/billets/create-guichet` used `ticketNumber` instead of `billetId` (spec requires `busgo.sn/b/[billetId]`)
+  3. Same QR code URL bug in `/api/trajets/import-csv` and `/api/billets/route.ts`
+- Installed vitest, @testing-library/react, @testing-library/jest-dom, @testing-library/user-event, jsdom, @vitejs/plugin-react
+- Created vitest.config.ts with jsdom environment and path aliases
+- Created comprehensive test setup with mocks for next-auth, Prisma, bcryptjs, canvas, window.open
+- Wrote 65 unit tests across 6 test files:
+  - `api/buses.test.ts` (9 tests): GET/POST auth, validation, uniqueness, creation
+  - `api/trajets.test.ts` (14 tests): GET dateFilter modes (today/upcoming/all), includeBillets, status filter, ordering; POST validation and creation
+  - `api/create-guichet.test.ts` (9 tests): auth, validation, seat conflicts, ticket uniqueness, client creation/reuse, QR code URL correctness
+  - `api/import-csv.test.ts` (11 tests): auth, validation, invalid seats, occupied seats, success import, QR URL, partial success
+  - `components/seat-selector.test.tsx` (11 tests): rendering, click handling, occupied/disabled states, selected highlighting, capacity bounds
+  - `components/qr-code-display.test.tsx` (11 tests): rendering, info display, print button, reset button
+- All 65 tests pass
 
 Stage Summary:
-- Full guichetier workflow operational with real DB data
-- QR codes contain URL format: https://busgo.sn/b/[ticketNumber]
-- Print generates a standalone ticket HTML with QR, passenger info, and mandatory scan warning
-- CSV import supports columns: nom/name, telephone/phone/tel, siege/seat
-- 3 billets verified sold on today's trajets (seat 1, 2, and newly created seat 3)
+- 3 bugs fixed (dateFilter mismatch, QR URL using ticketNumber in 3 routes)
+- 65 unit tests written and passing
+- Guichetier webapp is fully functional: /admin/guichet, /admin/trajets, /admin/buses
+- Reusable components: SeatSelector (visual bus layout), QRCodeDisplay (QR generation + print)
+- API routes: 8 endpoints covering full CRUD for buses, trajets, billets + CSV import
+- Test infrastructure: vitest + jsdom + testing-library configured with proper mocks

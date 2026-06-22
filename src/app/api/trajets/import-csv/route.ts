@@ -79,19 +79,24 @@ export async function POST(req: NextRequest) {
     }
 
     const ticketNumber = `BG-${Date.now().toString(36).toUpperCase()}-${seatNum.toString().padStart(4, "0")}`;
-    const qrCode = `https://busgo.sn/b/${ticketNumber}`;
 
     try {
-      await db.billet.create({
+      const newBillet = await db.billet.create({
         data: {
           trajetId,
           clientId: client.id,
           seatNumber: seatNum,
           ticketNumber,
-          qrCode,
           status: "sold",
         },
       });
+
+      // Set qrCode with the actual billet ID
+      await db.billet.update({
+        where: { id: newBillet.id },
+        data: { qrCode: `https://busgo.sn/b/${newBillet.id}` },
+      });
+
       occupiedSeats.add(seatNum);
       results.success++;
     } catch {

@@ -69,7 +69,6 @@ export async function POST(req: NextRequest) {
       clientId: client.id,
       seatNumber,
       ticketNumber,
-      qrCode: `https://busgo.sn/b/${ticketNumber}`,
       status: "sold",
     },
     include: {
@@ -78,5 +77,15 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return NextResponse.json(billet, { status: 201 });
+  // Update qrCode with the actual billet ID
+  const updated = await db.billet.update({
+    where: { id: billet.id },
+    data: { qrCode: `https://busgo.sn/b/${billet.id}` },
+    include: {
+      trajet: { include: { bus: true } },
+      client: { select: { id: true, name: true, phone: true } },
+    },
+  });
+
+  return NextResponse.json(updated, { status: 201 });
 }

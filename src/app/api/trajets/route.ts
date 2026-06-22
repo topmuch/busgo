@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const dateFilter = searchParams.get("date");
+  const dateFilter = searchParams.get("dateFilter") || searchParams.get("date");
   const statusFilter = searchParams.get("status");
   const includeBillets = searchParams.get("includeBillets") === "true";
 
@@ -19,14 +19,26 @@ export async function GET(req: NextRequest) {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
+  let dateWhere: Record<string, unknown> = {};
+
+  if (dateFilter === "today") {
+    dateWhere = { date: { gte: today, lt: tomorrow } };
+  } else if (dateFilter === "upcoming") {
+    dateWhere = { date: { gte: today } };
+  } else if (dateFilter === "all") {
+    // No date filter
+  } else if (dateFilter) {
+    // Specific date string
+    dateWhere = { date: new Date(dateFilter) };
+  } else {
+    // Default: show today
+    dateWhere = { date: { gte: today, lt: tomorrow } };
+  }
+
   const trajets = await db.trajet.findMany({
     where: {
       tenantId: session.user.tenantId,
-      ...(dateFilter === "today"
-        ? { date: { gte: today, lt: tomorrow } }
-        : dateFilter
-          ? { date: new Date(dateFilter) }
-          : {}),
+      ...dateWhere,
       ...(statusFilter ? { status: statusFilter } : {}),
     },
     include: {

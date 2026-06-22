@@ -157,6 +157,9 @@ async function main() {
 
   // --- Trajets ---
   const now = new Date();
+  const today = new Date(now);
+  today.setHours(now.getHours() + 2, 0, 0, 0); // 2h from now
+
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(8, 0, 0, 0);
@@ -175,9 +178,22 @@ async function main() {
       busId: bus1.id,
       origin: "Dakar",
       destination: "Saint-Louis",
-      date: tomorrow,
-      time: "08:00",
+      date: today,
+      time: String(today.getHours()).padStart(2, "0") + ":00",
       price: 5000,
+      status: "scheduled",
+    },
+  });
+
+  const trajetToday2 = await prisma.trajet.create({
+    data: {
+      tenantId: fastBus.id,
+      busId: bus2.id,
+      origin: "Dakar",
+      destination: "Thiès",
+      date: today,
+      time: String(today.getHours() + 1).padStart(2, "0") + ":30",
+      price: 2000,
       status: "scheduled",
     },
   });
@@ -185,12 +201,12 @@ async function main() {
   const trajet2 = await prisma.trajet.create({
     data: {
       tenantId: fastBus.id,
-      busId: bus2.id,
+      busId: bus1.id,
       origin: "Dakar",
-      destination: "Thiès",
+      destination: "Saint-Louis",
       date: tomorrow,
-      time: "10:30",
-      price: 2000,
+      time: "08:00",
+      price: 5000,
       status: "scheduled",
     },
   });
@@ -234,7 +250,7 @@ async function main() {
     },
   });
 
-  console.log(`Created ${5} trajets`);
+  console.log(`Created ${7} trajets`);
 
   // --- Billets ---
   const ticketPrefix = "BG";

@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { Bus, Users, Ticket, Building2, Settings, LogOut, Bell } from "lucide-react";
+import { Bus, Users, Ticket, Building2, Settings, LogOut, Bell, ScanLine } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -35,6 +35,7 @@ export default async function AdminLayout({
 
   const navItems = [
     { href: "/admin", label: "Tableau de bord", icon: Bus },
+    { href: "/admin/guichet", label: "Guichet", icon: ScanLine },
     { href: "/admin/buses", label: "Bus", icon: Bus },
     { href: "/admin/trajets", label: "Trajets", icon: Ticket },
     { href: "/admin/users", label: "Utilisateurs", icon: Users },

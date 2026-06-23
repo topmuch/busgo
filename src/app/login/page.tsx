@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { Bus, Eye, EyeOff } from "lucide-react";
+import { useState, useEffect, Suspense, useCallback } from "react";
+import { Bus, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,12 +14,11 @@ const demoAccounts = [
   { email: "client@demo.com", password: "Demo1234!", role: "Client", color: "bg-sky-100 text-sky-800" },
 ];
 
-const errorMessages: Record<string, string> = {
-  missing: "Email et mot de passe requis",
-  notfound: "Utilisateur non trouvé",
-  disabled: "Compte désactivé",
-  wrong: "Mot de passe incorrect",
-  server: "Erreur serveur",
+const errorMap: Record<number, string> = {
+  400: "Email et mot de passe requis",
+  401: "Identifiants incorrects",
+  403: "Compte désactivé",
+  500: "Erreur serveur",
 };
 
 function LoginForm() {
@@ -27,19 +26,53 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const err = params.get("error");
+    const p = new URLSearchParams(window.location.search);
+    const err = p.get("error");
     if (err) {
-      setError(errorMessages[err] || "Erreur de connexion");
+      setError(err);
       window.history.replaceState({}, "", "/login");
     }
   }, []);
 
+  const login = useCallback(async (emailVal: string, passwordVal: string) => {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailVal, password: passwordVal }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || errorMap[res.status] || `Erreur ${res.status}`);
+        return;
+      }
+
+      const data = await res.json();
+
+      // Client-side redirect using RELATIVE path - browser stays on current domain
+      window.location.href = data.redirect || "/superadmin";
+    } catch {
+      setError("Impossible de contacter le serveur");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    login(email, password);
+  };
+
   const handleQuickLogin = (account: (typeof demoAccounts)[number]) => {
     setEmail(account.email);
     setPassword(account.password);
+    login(account.email, account.password);
   };
 
   return (
@@ -50,72 +83,42 @@ function LoginForm() {
             <Bus className="h-6 w-6 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold">Bus Go</h1>
-          <p className="text-muted-foreground text-sm">
-            Connectez-vous à votre espace
-          </p>
+          <p className="text-muted-foreground text-sm">Connectez-vous à votre espace</p>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Connexion</CardTitle>
-            <CardDescription>
-              Entrez vos identifiants pour accéder à votre tableau de bord.
-            </CardDescription>
+            <CardDescription>Entrez vos identifiants pour accéder à votre tableau de bord.</CardDescription>
           </CardHeader>
           <CardContent>
-            {error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive mb-4">
-                {error}
-              </div>
-            )}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+              )}
 
-            {/* Pure HTML form — no JavaScript submission, browser handles POST + redirect natively */}
-            <form action="/api/login" method="POST" className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="vous@exemple.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                />
+                <Input id="email" name="email" type="email" placeholder="vous@exemple.com"
+                  value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="password">Mot de passe</Label>
                 <div className="relative">
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Votre mot de passe"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoComplete="current-password"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
+                  <Input id="password" name="password" type={showPassword ? "text" : "password"}
+                    placeholder="Votre mot de passe" value={password}
+                    onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
+                  <Button type="button" variant="ghost" size="icon"
                     className="absolute right-0 top-0 h-full px-3"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
+                    onClick={() => setShowPassword(!showPassword)}>
+                    {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                   </Button>
                 </div>
               </div>
 
-              <Button type="submit" className="w-full">
-                Se connecter
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Connexion...</> : "Se connecter"}
               </Button>
             </form>
           </CardContent>
@@ -124,29 +127,15 @@ function LoginForm() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Comptes de démonstration</CardTitle>
-            <CardDescription className="text-xs">
-              Cliquez sur un compte pour le remplir automatiquement
-            </CardDescription>
+            <CardDescription className="text-xs">Cliquez pour vous connecter automatiquement</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-2">
               {demoAccounts.map((account) => (
-                <button
-                  key={account.email}
-                  type="button"
-                  onClick={() => handleQuickLogin(account)}
-                  className="rounded-lg border p-2.5 text-left hover:bg-muted/80 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${account.color}`}
-                    >
-                      {account.role}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1 truncate">
-                    {account.email}
-                  </p>
+                <button key={account.email} type="button" onClick={() => handleQuickLogin(account)}
+                  className="rounded-lg border p-2.5 text-left hover:bg-muted/80 transition-colors">
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${account.color}`}>{account.role}</span>
+                  <p className="text-xs text-muted-foreground mt-1 truncate">{account.email}</p>
                 </button>
               ))}
             </div>
@@ -158,9 +147,5 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
-  return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
-  );
+  return <Suspense><LoginForm /></Suspense>;
 }

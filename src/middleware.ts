@@ -5,44 +5,27 @@ import { jwtVerify } from "jose";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow ALL API routes and static files
+  // Allow everything except protected routes
   if (
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/logo") ||
-    pathname === "/"
+    pathname === "/" ||
+    pathname === "/login"
   ) {
     return NextResponse.next();
   }
 
-  // Allow login page
-  if (pathname === "/login") {
-    return NextResponse.next();
-  }
+  // Check JWT cookie
+  const token =
+    request.cookies.get("next-auth.session-token")?.value ||
+    request.cookies.get("__Secure-next-auth.session-token")?.value;
 
-  // For protected routes: check JWT cookie
-  const cookieNames = [
-    "next-auth.session-token",
-    "__Secure-next-auth.session-token",
-  ];
-  let token: string | undefined;
-  for (const name of cookieNames) {
-    const val = request.cookies.get(name)?.value;
-    if (val) {
-      token = val;
-      break;
-    }
-  }
-
-  // No token -> redirect to /login using RELATIVE path
   if (!token) {
-    const response = new NextResponse(null, { status: 302 });
-    response.headers.set("Location", "/login");
-    return response;
+    return new NextResponse(null, { status: 302, headers: { Location: "/login" } });
   }
 
-  // Verify token
   try {
     const secret = new TextEncoder().encode(
       process.env.NEXTAUTH_SECRET || "busgo-superadmin-secret-change-me-2024"
@@ -53,30 +36,18 @@ export async function middleware(request: NextRequest) {
     const role = (inner?.role || p.role) as string | undefined;
 
     if (pathname.startsWith("/superadmin") && role !== "superadmin") {
-      const response = new NextResponse(null, { status: 302 });
-      response.headers.set("Location", "/login");
-      return response;
+      return new NextResponse(null, { status: 302, headers: { Location: "/login" } });
     }
     if (pathname.startsWith("/admin") && role !== "admin" && role !== "superadmin") {
-      const response = new NextResponse(null, { status: 302 });
-      response.headers.set("Location", "/login");
-      return response;
+      return new NextResponse(null, { status: 302, headers: { Location: "/login" } });
     }
 
     return NextResponse.next();
   } catch {
-    const response = new NextResponse(null, { status: 302 });
-    response.headers.set("Location", "/login");
-    return response;
+    return new NextResponse(null, { status: 302, headers: { Location: "/login" } });
   }
 }
 
 export const config = {
-  matcher: [
-    "/superadmin/:path*",
-    "/admin/:path*",
-    "/agent/:path*",
-    "/client/:path*",
-    "/login",
-  ],
+  matcher: ["/superadmin/:path*", "/admin/:path*", "/agent/:path*", "/client/:path*", "/login"],
 };

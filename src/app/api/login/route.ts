@@ -14,12 +14,6 @@ function getRedirectPath(role: string): string {
   }
 }
 
-function redirectRelative(path: string): NextResponse {
-  const response = new NextResponse(null, { status: 302 });
-  response.headers.set("Location", path);
-  return response;
-}
-
 export async function POST(request: NextRequest) {
   try {
     let email: string | null = null;
@@ -38,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!email || !password) {
-      return redirectRelative("/login?error=missing");
+      return NextResponse.json({ error: "Email et mot de passe requis" }, { status: 400 });
     }
 
     const user = await db.user.findUnique({
@@ -47,16 +41,16 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return redirectRelative("/login?error=notfound");
+      return NextResponse.json({ error: "Utilisateur non trouvé" }, { status: 401 });
     }
 
     if (!user.isActive) {
-      return redirectRelative("/login?error=disabled");
+      return NextResponse.json({ error: "Compte désactivé" }, { status: 403 });
     }
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
-      return redirectRelative("/login?error=wrong");
+      return NextResponse.json({ error: "Mot de passe incorrect" }, { status: 401 });
     }
 
     // Create JWT token
@@ -75,9 +69,12 @@ export async function POST(request: NextRequest) {
       .setExpirationTime("30d")
       .sign(secret);
 
-    // 302 redirect with RELATIVE Location header + Set-Cookie
-    const redirectPath = getRedirectPath(user.role);
-    const response = redirectRelative(redirectPath);
+    // Return JSON with Set-Cookie header
+    const response = NextResponse.json({
+      ok: true,
+      redirect: getRedirectPath(user.role),
+      user: { role: user.role, name: user.name, email: user.email },
+    });
 
     response.cookies.set("next-auth.session-token", token, {
       httpOnly: true,
@@ -90,6 +87,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Login error:", error);
-    return redirectRelative("/login?error=server");
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }

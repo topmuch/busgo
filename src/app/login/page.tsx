@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { Bus, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Bus, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +27,6 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -38,18 +37,6 @@ function LoginForm() {
     }
   }, []);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    // Submit form natively to /api/login — server sets cookie + redirects
-    const form = e.currentTarget;
-    form.action = "/api/login";
-    form.method = "POST";
-    form.submit();
-  };
-
   const handleQuickLogin = (account: (typeof demoAccounts)[number]) => {
     setEmail(account.email);
     setPassword(account.password);
@@ -58,7 +45,6 @@ function LoginForm() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
       <div className="w-full max-w-md space-y-6">
-        {/* Logo */}
         <div className="text-center space-y-2">
           <div className="mx-auto h-12 w-12 rounded-xl bg-primary flex items-center justify-center">
             <Bus className="h-6 w-6 text-primary-foreground" />
@@ -69,7 +55,6 @@ function LoginForm() {
           </p>
         </div>
 
-        {/* Login Form — native POST to /api/login, server handles cookie + redirect */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Connexion</CardTitle>
@@ -78,13 +63,14 @@ function LoginForm() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                  {error}
-                </div>
-              )}
+            {error && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive mb-4">
+                {error}
+              </div>
+            )}
 
+            {/* Pure HTML form — no JavaScript submission, browser handles POST + redirect natively */}
+            <form action="/api/login" method="POST" className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -128,21 +114,13 @@ function LoginForm() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Connexion...
-                  </>
-                ) : (
-                  "Se connecter"
-                )}
+              <Button type="submit" className="w-full">
+                Se connecter
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        {/* Demo Accounts */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Comptes de démonstration</CardTitle>

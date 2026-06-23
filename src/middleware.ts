@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-const publicPaths = ["/login", "/api/auth"];
-const cookieName = "next-auth.session-token";
+const publicPaths = ["/login", "/api/auth", "/api/login", "/api/debug"];
+const cookieNames = ["next-auth.session-token", "__Secure-next-auth.session-token"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -46,8 +46,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Get JWT token
-  const token = request.cookies.get(cookieName)?.value;
+  // Get JWT token (check both cookie names)
+  let token: string | undefined;
+  for (const name of cookieNames) {
+    token = request.cookies.get(name)?.value;
+    if (token) break;
+  }
   if (!token) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);

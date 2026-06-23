@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 
 // GET voice config
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     if (!session?.user?.id || !["admin", "superadmin"].includes(session.user.role)) {
       return NextResponse.json({ error: "Non autorise" }, { status: 401 });
     }
@@ -30,7 +29,7 @@ export async function GET() {
 // PUT update voice config
 export async function PUT(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     if (!session?.user?.id || !["admin", "superadmin"].includes(session.user.role)) {
       return NextResponse.json({ error: "Non autorise" }, { status: 401 });
     }

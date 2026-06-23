@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, POST } from "@/app/api/buses/route";
 
 // Import the mocked module
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 
 const mockSession = {

@@ -44,7 +44,7 @@ vi.mock("next-auth/jwt", () => ({
   encode: vi.fn().mockResolvedValue("mock-token"),
 }));
 
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 
 const mockSession = {

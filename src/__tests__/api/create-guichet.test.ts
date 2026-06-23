@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/billets/create-guichet/route";
 import bcrypt from "bcryptjs";
 
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 
 const mockSession = {

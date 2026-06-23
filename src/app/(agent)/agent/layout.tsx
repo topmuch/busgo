@@ -1,6 +1,5 @@
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
 import { Bus, Ticket, ScanLine, MapPin, LayoutDashboard } from "lucide-react";
 import { SharedClientHeader, SharedClientNav } from "@/components/shared-header";
 import { AgentPWAProvider } from "@/components/agent/pwa-provider";
@@ -18,7 +17,7 @@ export default async function AgentLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
 
   if (
     !session ||

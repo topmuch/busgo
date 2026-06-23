@@ -1,6 +1,5 @@
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
 import { Bus, Users, Ticket, LogOut, Bell, ScanLine, LayoutDashboard, Mic, FileBarChart2, Cog } from "lucide-react";
 import { SharedClientHeader, SharedClientNav } from "@/components/shared-header";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -12,7 +11,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
 
   if (!session || (session.user.role !== "admin" && session.user.role !== "superadmin")) {
     redirect("/login");

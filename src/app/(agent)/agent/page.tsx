@@ -1,12 +1,11 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScanLine, Ticket, Clock, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default async function AgentDashboard() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   const tenantId = session?.user?.tenantId;
 
   const today = new Date();

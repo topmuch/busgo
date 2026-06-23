@@ -1,6 +1,5 @@
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
 import {
   BarChart3,
   Building2,
@@ -46,7 +45,7 @@ export default async function SuperAdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
 
   if (!session || session.user.role !== "superadmin") {
     redirect("/login");

@@ -1,11 +1,10 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bus, Ticket, Users, TrendingUp } from "lucide-react";
 
 export default async function AdminDashboard() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   const tenantId = session?.user?.tenantId;
 
   const [busCount, trajetCount, userCount, billetCount] = await Promise.all([

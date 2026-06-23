@@ -5,28 +5,6 @@ import { db } from "@/lib/db";
 
 const SECRET = process.env.NEXTAUTH_SECRET || "busgo-superadmin-secret-change-me-2024";
 
-function getBaseUrl(request: NextRequest): string {
-  // 1. Use NEXTAUTH_URL if set (Coolify sets this to the real public URL)
-  if (process.env.NEXTAUTH_URL && process.env.NEXTAUTH_URL !== "http://localhost:3000") {
-    return process.env.NEXTAUTH_URL.replace(/\/$/, "");
-  }
-  // 2. Reconstruct from proxy forwarded headers (Coolify sets these)
-  const proto = request.headers.get("x-forwarded-proto") || "https";
-  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
-  if (host && host !== "0.0.0.0:3000") {
-    return `${proto}://${host}`;
-  }
-  // 3. Last resort: use request.url but replace 0.0.0.0 with the forwarded host
-  const url = new URL(request.url);
-  const fwdHost = request.headers.get("x-forwarded-host");
-  if (fwdHost) {
-    url.protocol = proto;
-    url.host = fwdHost;
-    return url.origin;
-  }
-  return url.origin;
-}
-
 function getRedirectPath(role: string): string {
   switch (role) {
     case "superadmin": return "/superadmin";
@@ -36,9 +14,13 @@ function getRedirectPath(role: string): string {
   }
 }
 
-export async function POST(request: NextRequest) {
-  const baseUrl = getBaseUrl(request);
+function redirectRelative(path: string): NextResponse {
+  const response = new NextResponse(null, { status: 302 });
+  response.headers.set("Location", path);
+  return response;
+}
 
+export async function POST(request: NextRequest) {
   try {
     let email: string | null = null;
     let password: string | null = null;
@@ -56,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!email || !password) {
-      return NextResponse.redirect(`${baseUrl}/login?error=missing`);
+      return redirectRelative("/login?error=missing");
     }
 
     const user = await db.user.findUnique({
@@ -65,16 +47,16 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.redirect(`${baseUrl}/login?error=notfound`);
+      return redirectRelative("/login?error=notfound");
     }
 
     if (!user.isActive) {
-      return NextResponse.redirect(`${baseUrl}/login?error=disabled`);
+      return redirectRelative("/login?error=disabled");
     }
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
-      return NextResponse.redirect(`${baseUrl}/login?error=wrong`);
+      return redirectRelative("/login?error=wrong");
     }
 
     // Create JWT token
@@ -93,10 +75,9 @@ export async function POST(request: NextRequest) {
       .setExpirationTime("30d")
       .sign(secret);
 
-    // Redirect to role-based dashboard using the PUBLIC base URL
-    const redirectUrl = `${baseUrl}${getRedirectPath(user.role)}`;
-
-    const response = NextResponse.redirect(redirectUrl, { status: 302 });
+    // 302 redirect with RELATIVE Location header + Set-Cookie
+    const redirectPath = getRedirectPath(user.role);
+    const response = redirectRelative(redirectPath);
 
     response.cookies.set("next-auth.session-token", token, {
       httpOnly: true,
@@ -109,6 +90,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Login error:", error);
-    return NextResponse.redirect(`${baseUrl}/login?error=server`);
+    return redirectRelative("/login?error=server");
   }
 }

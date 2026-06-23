@@ -40,6 +40,10 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV DATABASE_URL="file:/app/db/custom.db"
+ENV NODE_ENV="production"
+# NextAuth needs these in production
+ENV NEXTAUTH_URL="http://localhost:3000"
+ENV NEXTAUTH_SECRET="busgo-superadmin-secret-change-me-2024"
 
 # Start command - init DB, seed superadmin if empty, start server
-CMD ["sh", "-c", "mkdir -p /app/db && DATABASE_URL=file:/app/db/custom.db npx prisma db push --skip-generate 2>/dev/null || true && node /app/scripts/seed-superadmin.cjs 2>/dev/null || true && exec node .next/standalone/server.js"]
+CMD ["sh", "-c", "mkdir -p /app/db && DATABASE_URL=file:/app/db/custom.db npx prisma db push --skip-generate 2>/dev/null || true && node /app/.next/standalone/scripts/seed-superadmin.cjs 2>/dev/null || true && exec node .next/standalone/server.js"]

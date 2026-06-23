@@ -3,9 +3,7 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
 const publicPaths = ["/login", "/api/auth"];
-const cookieName = process.env.NODE_ENV === "production"
-  ? "__Secure-next-auth.session-token"
-  : "next-auth.session-token";
+const cookieName = "next-auth.session-token";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -6,14 +6,25 @@ import { db } from "@/lib/db";
 const SECRET = process.env.NEXTAUTH_SECRET || "busgo-superadmin-secret-change-me-2024";
 
 function getBaseUrl(request: NextRequest): string {
-  // Use NEXTAUTH_URL if set (correct public URL in Coolify)
-  if (process.env.NEXTAUTH_URL) {
+  // 1. Use NEXTAUTH_URL if set (Coolify sets this to the real public URL)
+  if (process.env.NEXTAUTH_URL && process.env.NEXTAUTH_URL !== "http://localhost:3000") {
     return process.env.NEXTAUTH_URL.replace(/\/$/, "");
   }
-  // Fallback: reconstruct from forwarded headers
+  // 2. Reconstruct from proxy forwarded headers (Coolify sets these)
   const proto = request.headers.get("x-forwarded-proto") || "https";
-  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000";
-  return `${proto}://${host}`;
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
+  if (host && host !== "0.0.0.0:3000") {
+    return `${proto}://${host}`;
+  }
+  // 3. Last resort: use request.url but replace 0.0.0.0 with the forwarded host
+  const url = new URL(request.url);
+  const fwdHost = request.headers.get("x-forwarded-host");
+  if (fwdHost) {
+    url.protocol = proto;
+    url.host = fwdHost;
+    return url.origin;
+  }
+  return url.origin;
 }
 
 function getRedirectPath(role: string): string {

@@ -13,8 +13,17 @@ export async function GET(request: NextRequest) {
     DATABASE_URL: process.env.DATABASE_URL,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     NEXTAUTH_SECRET_SET: !!process.env.NEXTAUTH_SECRET,
-    NEXTAUTH_SECRET_VALUE: process.env.NEXTAUTH_SECRET || "(not set)",
     PORT: process.env.PORT,
+  };
+
+  // 2. Proxy headers (to debug redirect issues)
+  info.proxyHeaders = {
+    host: request.headers.get("host"),
+    "x-forwarded-host": request.headers.get("x-forwarded-host"),
+    "x-forwarded-proto": request.headers.get("x-forwarded-proto"),
+    "x-forwarded-for": request.headers.get("x-forwarded-for"),
+    "x-real-ip": request.headers.get("x-real-ip"),
+    "request-url": request.url,
   };
 
   // 2. Cookies from request

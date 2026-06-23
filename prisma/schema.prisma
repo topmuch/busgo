@@ -8,15 +8,50 @@ datasource db {
 }
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  logo      String?
-  phone     String?
-  plan      String   @default("starter")
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String    @id @default(cuid())
+  name            String
+  slug            String    @unique
+  logo            String?
+  phone           String?
+  email           String?
+  address         String?
+  country         String    @default("SN")
+
+  // SEO & Branding
+  seoTitle        String?
+  seoDescription  String?
+  seoKeywords     String?
+  ogImage         String?
+  primaryColor    String    @default("#7C3AED")
+  secondaryColor  String    @default("#F43F5E")
+
+  // Subscription
+  plan            String    @default("starter")
+  subscriptionStatus String @default("trial") // active, suspended, cancelled, trial
+  subscriptionStart DateTime?
+  subscriptionEnd   DateTime?
+  totalBuses      Int       @default(0)
+  monthlyPrice    Int       @default(0) // en FCFA
+
+  // Credentials générés
+  adminEmail      String?   @unique // Email de l'admin de la compagnie
+  adminPassword   String?   // Hashé, généré automatiquement
+  adminPhone      String?
+
+  // Status
+  isActive        Boolean   @default(true)
+  isSuspended     Boolean   @default(false)
+  suspensionReason String?
+  suspendedAt     DateTime?
+  suspendedBy     String?   // ID du superadmin
+
+  // Stats
+  totalRevenue    Int       @default(0) // CA généré pour Bus Go
+  lastLoginAt     DateTime?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
   users                User[]
   buses                Bus[]
   trajets              Trajet[]
@@ -24,6 +59,7 @@ model Tenant {
   subscriptions        Subscription[]
   invoices             Invoice[]
   notificationTemplates NotificationTemplate[]
+  auditLogs            AuditLog[]
 }
 
 model User {
@@ -41,6 +77,7 @@ model User {
   buses           Bus[]    @relation("Driver")
   billets         Billet[] @relation("Client")
   drivenTrajets   Trajet[] @relation("TrajetDriver")
+  auditLogs       AuditLog[]
 }
 
 // Role values: superadmin, admin, agent, client
@@ -128,22 +165,45 @@ model Subscription {
   invoices     Invoice[]
 }
 
-// InvoiceStatus values: paid, pending, failed, overdue
+// InvoiceStatus values: paid, pending, failed, overdue, cancelled
 model Invoice {
-  id            String   @id @default(cuid())
-  tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id])
-  subscriptionId String
-  subscription  Subscription @relation(fields: [subscriptionId], references: [id])
-  number        String   @unique
-  amount        Int
-  status        String   @default("pending")
-  dueDate       DateTime
-  paidAt        DateTime?
-  createdAt     DateTime @default(now())
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  subscriptionId  String
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id])
+
+  invoiceNumber   String?   @unique // ex: INV-2026-001
+  invoiceDate     DateTime  @default(now())
+  dueDate         DateTime
+
+  // Détails
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  numberOfBuses   Int       @default(0)
+  pricePerBus     Int       @default(20000)
+  subtotal        Int       @default(0)
+  tax             Int       @default(0)
+  total           Int       @default(0)
+
+  // Status
+  status          String    @default("pending") // pending, paid, overdue, cancelled
+  paidAt          DateTime?
+  paymentMethod   String?
+
+  // PDF
+  pdfUrl          String?
+
+  notes           String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([invoiceDate])
 }
 
-// LogLevel values: info, warning, error
 model SystemLog {
   id        String   @id @default(cuid())
   level     String   @default("info")
@@ -167,4 +227,61 @@ model NotificationTemplate {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model SystemConfig {
+  id              String    @id @default("global")
+
+  // SEO Global
+  siteName        String    @default("Bus Go")
+  siteDescription String    @default("SaaS de gestion d'embarquement pour compagnies de bus")
+  siteKeywords    String?
+  ogImage         String?
+  favicon         String?
+
+  // Branding
+  logoUrl         String?
+  primaryColor    String    @default("#7C3AED")
+  secondaryColor  String    @default("#F43F5E")
+
+  // Contact
+  supportEmail    String    @default("support@busgo.sn")
+  supportPhone    String    @default("+221 33 XXX XX XX")
+  supportWhatsApp String    @default("+221 77 XXX XX XX")
+  address         String?
+
+  // Pricing
+  pricePerBus     Int       @default(20000)
+  trialDays       Int       @default(14)
+
+  // Features
+  smsEnabled      Boolean   @default(false)
+  whatsappEnabled Boolean   @default(true)
+  ttsEnabled      Boolean   @default(true)
+
+  updatedAt       DateTime  @updatedAt
+}
+
+// AuditLog — tracks all critical superadmin actions
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String   // tenant.create, tenant.suspend, invoice.pay, config.update, etc.
+  entityType  String?  // Tenant, Invoice, SystemConfig
+  entityId    String?
+  oldValues   String?  // JSON string of previous values
+  newValues   String?  // JSON string of new values
+  tenantId    String?  // affected tenant
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([action])
+  @@index([entityType])
+  @@index([tenantId])
+  @@index([createdAt])
+
+  @@index([userId])
 }

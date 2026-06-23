@@ -22,8 +22,8 @@ import { toast } from "sonner";
 
 interface Invoice {
   id: string;
-  number: string;
-  amount: number;
+  invoiceNumber: string | null;
+  total: number;
   status: string;
   dueDate: string;
   paidAt: string | null;
@@ -223,9 +223,9 @@ export default function BillingPage() {
                 const cfg = statusConfig[inv.status] || statusConfig.pending;
                 return (
                   <TableRow key={inv.id}>
-                    <TableCell className="font-mono text-sm">{inv.number}</TableCell>
+                    <TableCell className="font-mono text-sm">{inv.invoiceNumber || "—"}</TableCell>
                     <TableCell className="text-sm">{inv.tenant.name}</TableCell>
-                    <TableCell className="text-sm text-right font-medium">{formatFCFA(inv.amount)}</TableCell>
+                    <TableCell className="text-sm text-right font-medium">{formatFCFA(inv.total)}</TableCell>
                     <TableCell>
                       <Badge className={`text-[10px] ${cfg.color}`}><cfg.icon className="h-3 w-3 mr-1" />{cfg.label}</Badge>
                     </TableCell>
@@ -237,7 +237,7 @@ export default function BillingPage() {
                           variant="ghost"
                           size="sm"
                           className="text-xs h-7"
-                          onClick={() => { setStatusDialog({ invoiceId: inv.id, currentStatus: inv.status, number: inv.number }); setNewStatus("paid"); }}
+                          onClick={() => { setStatusDialog({ invoiceId: inv.id, currentStatus: inv.status, number: inv.invoiceNumber || "" }); setNewStatus("paid"); }}
                         >
                           Marquer payée
                         </Button>

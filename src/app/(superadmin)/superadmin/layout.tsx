@@ -1,17 +1,44 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { BarChart3, Building2, CreditCard, Settings, Shield, LineChart, Menu } from "lucide-react";
-import { SharedClientHeader, SharedClientNav } from "@/components/shared-header";
+import {
+  BarChart3,
+  Building2,
+  CreditCard,
+  Settings,
+  Shield,
+  LineChart,
+  Menu,
+  FileText,
+} from "lucide-react";
+import { SharedClientHeader } from "@/components/shared-header";
+import { SuperAdminSidebar } from "@/components/superadmin-sidebar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
-const navItems = [
-  { href: "/superadmin", label: "Vue d'ensemble", icon: BarChart3 },
-  { href: "/superadmin/tenants", label: "Entreprises", icon: Building2 },
-  { href: "/superadmin/billing", label: "Facturation", icon: CreditCard },
-  { href: "/superadmin/analytics", label: "Analytique", icon: LineChart },
-  { href: "/superadmin/settings", label: "Configuration", icon: Settings },
+const navGroups = [
+  {
+    label: "Principal",
+    items: [
+      { href: "/superadmin", label: "Vue d'ensemble", icon: BarChart3 },
+      { href: "/superadmin/tenants", label: "Entreprises", icon: Building2 },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
+      { href: "/superadmin/billing", label: "Facturation", icon: CreditCard },
+      { href: "/superadmin/analytics", label: "Analytique", icon: LineChart },
+    ],
+  },
+  {
+    label: "Système",
+    items: [
+      { href: "/superadmin/settings", label: "Configuration", icon: Settings },
+      { href: "/superadmin/audit", label: "Journal d'audit", icon: FileText },
+    ],
+  },
 ];
 
 export default async function SuperAdminLayout({
@@ -29,8 +56,10 @@ export default async function SuperAdminLayout({
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* ── Header ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center px-4 md:px-6">
+          {/* Mobile menu trigger */}
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden mr-2">
@@ -38,23 +67,40 @@ export default async function SuperAdminLayout({
                 <span className="sr-only">Menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-60 p-4">
-              <div className="flex items-center gap-2 font-bold text-lg mb-6">
-                <Shield className="h-5 w-5 text-rose-600" />
-                <span>Bus Go</span>
+            <SheetContent side="left" className="w-64 p-4">
+              <div className="flex items-center gap-2.5 mb-6">
+                <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary text-primary-foreground">
+                  <Shield className="h-4 w-4" />
+                </div>
+                <div className="flex flex-col">
+                  <Link
+                    href="/superadmin"
+                    className="font-bold text-base leading-none"
+                  >
+                    Bus Go
+                  </Link>
+                  <span className="mt-1 text-[10px] bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300 px-1.5 py-0.5 rounded font-semibold w-fit">
+                    SuperAdmin
+                  </span>
+                </div>
               </div>
-              <SharedClientNav navItems={navItems} />
+              <SuperAdminSidebar navGroups={navGroups} />
             </SheetContent>
           </Sheet>
 
-          <div className="flex items-center gap-2 font-bold text-lg">
-            <Shield className="h-5 w-5 text-primary" />
-            <span>Bus Go</span>
-            <span className="text-xs bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300 px-1.5 py-0.5 rounded font-medium flex items-center gap-1">
-              <Shield className="h-3 w-3" />
-              SuperAdmin
-            </span>
-          </div>
+          {/* Brand + badge (desktop) */}
+          <Link href="/superadmin" className="flex items-center gap-2.5">
+            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary text-primary-foreground">
+              <Shield className="h-4 w-4" />
+            </div>
+            <div className="hidden md:flex flex-col">
+              <span className="font-bold text-base leading-none">Bus Go</span>
+              <span className="mt-1 text-[10px] bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300 px-1.5 py-0.5 rounded font-semibold w-fit flex items-center gap-1">
+                <Shield className="h-3 w-3" />
+                SuperAdmin
+              </span>
+            </div>
+          </Link>
 
           <SharedClientHeader
             user={{
@@ -67,9 +113,17 @@ export default async function SuperAdminLayout({
         </div>
       </header>
 
+      {/* ── Body: Sidebar + Main ──────────────────────────── */}
       <div className="flex-1 flex">
-        <aside className="hidden md:flex w-60 flex-col border-r bg-muted/40 p-4">
-          <SharedClientNav navItems={navItems} />
+        {/* Desktop sidebar */}
+        <aside
+          className={[
+            "hidden md:flex w-60 flex-col border-r p-4",
+            "bg-gradient-to-b from-violet-950/5 to-transparent",
+            "dark:from-violet-950/40 dark:to-transparent",
+          ].join(" ")}
+        >
+          <SuperAdminSidebar navGroups={navGroups} />
         </aside>
 
         <main className="flex-1 p-4 md:p-6">{children}</main>

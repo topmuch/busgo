@@ -79,3 +79,48 @@ Stage Summary:
 - 14 landing sections + floating WhatsApp + Schema.org + Open Graph
 - Interactive ROI calculator with real-time FCFA computation
 - 0 TypeScript errors in landing files, build passes
+
+---
+Task ID: 4
+Agent: Main Agent + 3 parallel subagents
+Task: SuperAdmin Dashboard PHASE 1 — Schéma Prisma, Migrations, Middleware, Layout amélioré
+
+Work Log:
+- Audited all existing SuperAdmin code: 6 pages, 17 API routes, schema, middleware, layout
+- Confirmed Prisma schema already has enhanced Tenant, Invoice, SystemConfig, AuditLog models
+- Confirmed DB is in sync (prisma db push)
+- Confirmed middleware already protects /superadmin routes (role === "superadmin")
+- Fixed 3 TypeScript errors in API routes:
+  - analytics/route.ts: typed monthlyTrend array (was inferred as never[])
+  - dashboard/route.ts: typed mrrHistory array (was inferred as never[])
+  - invoices/route.ts: changed error.errors → error.issues (ZodError property name)
+- Added PATCH handler to /api/superadmin/tenants for isActive toggle (was missing, tenants page was calling it)
+  - Includes user.updateMany to toggle all tenant users
+  - Includes audit log entry
+- Created new SuperAdminSidebar component (src/components/superadmin-sidebar.tsx):
+  - Grouped navigation with section headers (Principal, Finance, Système)
+  - Active state with left border accent (border-l-2 border-primary)
+  - Hover states, proper icon sizing, footer with version
+- Enhanced SuperAdmin layout (src/app/(superadmin)/superadmin/layout.tsx):
+  - Replaced flat SharedClientNav with grouped SuperAdminSidebar
+  - Branded header with Shield icon in primary box, "Bus Go" text, rose SuperAdmin badge
+  - Violet gradient sidebar background (light/dark mode)
+  - Mobile Sheet uses same grouped sidebar
+  - Header links to /superadmin
+- Added "Général" tab (default) to Settings page:
+  - 5 config cards: Identité du site, Brandings, Contact support, Tarification, Fonctionnalités
+  - Color pickers for primary/secondary colors
+  - Switch toggles for SMS/WhatsApp/TTS
+  - Save button PATCHes to /api/superadmin/config
+- Added "Créer une entreprise" form to Tenants page:
+  - 7-field form (name, slug, adminName, adminEmail, adminPhone, plan, country)
+  - Auto-slug generation from name (NFD normalization)
+  - Credentials modal after creation with copy-to-clipboard
+- Updated 2 tests to match new PATCH handler behavior
+- All 113/113 tests passing, 0 SuperAdmin source TS errors
+
+Stage Summary:
+- 1 new component (superadmin-sidebar.tsx), 2 enhanced pages (settings, tenants), 1 enhanced layout
+- 1 new API handler (PATCH /api/superadmin/tenants)
+- 3 TS errors fixed, 2 tests updated
+- 113/113 tests passing, clean SuperAdmin compilation

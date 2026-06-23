@@ -72,7 +72,9 @@ export default function SettingsPage() {
   const [logs, setLogs] = useState<SysLog[]>([]);
   const [templates, setTemplates] = useState<NotifTemplate[]>([]);
   const [voiceConfigs, setVoiceConfigs] = useState<VoiceCfg[]>([]);
+  const [config, setConfig] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [savingConfig, setSavingConfig] = useState(false);
   const [logFilter, setLogFilter] = useState("all");
   const [editTemplate, setEditTemplate] = useState<NotifTemplate | null>(null);
   const [editBody, setEditBody] = useState("");
@@ -81,17 +83,19 @@ export default function SettingsPage() {
   const fetchSettings = useCallback(async () => {
     setLoading(true);
     try {
-      const [logsRes, templatesRes, voiceRes] = await Promise.all([
+      const [logsRes, templatesRes, voiceRes, configRes] = await Promise.all([
         fetch("/api/superadmin/settings?section=logs"),
         fetch("/api/superadmin/settings?section=templates"),
         fetch("/api/superadmin/settings?section=voice-configs"),
+        fetch("/api/superadmin/config"),
       ]);
-      const [logsData, templatesData, voiceData] = await Promise.all([
-        logsRes.json(), templatesRes.json(), voiceRes.json(),
+      const [logsData, templatesData, voiceData, configData] = await Promise.all([
+        logsRes.json(), templatesRes.json(), voiceRes.json(), configRes.json(),
       ]);
       setLogs(logsData);
       setTemplates(templatesData);
       setVoiceConfigs(voiceData);
+      setConfig(configData);
     } finally {
       setLoading(false);
     }
@@ -145,8 +149,11 @@ export default function SettingsPage() {
         <p className="text-muted-foreground">Paramètres globaux, templates et logs système.</p>
       </div>
 
-      <Tabs defaultValue="templates" className="space-y-4">
+      <Tabs defaultValue="general" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="general" className="gap-1.5 text-xs">
+            <Settings className="h-3.5 w-3.5" /> Général
+          </TabsTrigger>
           <TabsTrigger value="templates" className="gap-1.5 text-xs">
             <Bell className="h-3.5 w-3.5" /> Templates
           </TabsTrigger>
@@ -157,6 +164,157 @@ export default function SettingsPage() {
             <FileText className="h-3.5 w-3.5" /> Logs
           </TabsTrigger>
         </TabsList>
+
+        {/* Global Config */}
+        <TabsContent value="general">
+          {!config ? (
+            <div className="grid gap-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Card key={i}><CardContent className="p-6 space-y-4">{Array.from({ length: 4 }).map((_, j) => <Skeleton key={j} className="h-9 w-full" />)}</CardContent></Card>
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {/* Card 1: Identité du site */}
+              <Card>
+                <CardHeader><CardTitle className="text-lg">Identité du site</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Nom du site</label>
+                      <Input value={(config.siteName as string) ?? ""} onChange={(e) => setConfig({ ...config, siteName: e.target.value })} className="mt-1" />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-xs font-medium text-muted-foreground">Description du site</label>
+                      <Textarea rows={2} value={(config.siteDescription as string) ?? ""} onChange={(e) => setConfig({ ...config, siteDescription: e.target.value })} className="mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Mots-clés</label>
+                      <Input value={(config.siteKeywords as string) ?? ""} onChange={(e) => setConfig({ ...config, siteKeywords: e.target.value })} className="mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Favicon</label>
+                      <Input value={(config.favicon as string) ?? ""} onChange={(e) => setConfig({ ...config, favicon: e.target.value })} placeholder="/favicon.ico" className="mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">OG Image</label>
+                      <Input value={(config.ogImage as string) ?? ""} onChange={(e) => setConfig({ ...config, ogImage: e.target.value })} className="mt-1" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card 2: Brandings */}
+              <Card>
+                <CardHeader><CardTitle className="text-lg">Brandings</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Couleur primaire</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Input type="color" value={(config.primaryColor as string) ?? "#000000"} onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })} className="w-10 h-9 p-1 cursor-pointer" />
+                        <Input value={(config.primaryColor as string) ?? ""} onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })} className="flex-1" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Couleur secondaire</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Input type="color" value={(config.secondaryColor as string) ?? "#000000"} onChange={(e) => setConfig({ ...config, secondaryColor: e.target.value })} className="w-10 h-9 p-1 cursor-pointer" />
+                        <Input value={(config.secondaryColor as string) ?? ""} onChange={(e) => setConfig({ ...config, secondaryColor: e.target.value })} className="flex-1" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">URL du logo</label>
+                      <Input value={(config.logoUrl as string) ?? ""} onChange={(e) => setConfig({ ...config, logoUrl: e.target.value })} className="mt-1" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card 3: Contact support */}
+              <Card>
+                <CardHeader><CardTitle className="text-lg">Contact support</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Email de support</label>
+                      <Input type="email" value={(config.supportEmail as string) ?? ""} onChange={(e) => setConfig({ ...config, supportEmail: e.target.value })} className="mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Téléphone de support</label>
+                      <Input value={(config.supportPhone as string) ?? ""} onChange={(e) => setConfig({ ...config, supportPhone: e.target.value })} className="mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">WhatsApp de support</label>
+                      <Input value={(config.supportWhatsApp as string) ?? ""} onChange={(e) => setConfig({ ...config, supportWhatsApp: e.target.value })} className="mt-1" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card 4: Tarification */}
+              <Card>
+                <CardHeader><CardTitle className="text-lg">Tarification</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Prix par bus</label>
+                      <Input type="number" value={(config.pricePerBus as number) ?? ""} onChange={(e) => setConfig({ ...config, pricePerBus: e.target.value ? Number(e.target.value) : undefined })} className="mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Jours d&apos;essai</label>
+                      <Input type="number" value={(config.trialDays as number) ?? ""} onChange={(e) => setConfig({ ...config, trialDays: e.target.value ? Number(e.target.value) : undefined })} className="mt-1" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card 5: Fonctionnalités */}
+              <Card>
+                <CardHeader><CardTitle className="text-lg">Fonctionnalités</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <label className="text-sm font-medium">SMS</label>
+                      <Switch checked={!!config.smsEnabled} onCheckedChange={(checked) => setConfig({ ...config, smsEnabled: checked })} />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <label className="text-sm font-medium">WhatsApp</label>
+                      <Switch checked={!!config.whatsappEnabled} onCheckedChange={(checked) => setConfig({ ...config, whatsappEnabled: checked })} />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <label className="text-sm font-medium">TTS</label>
+                      <Switch checked={!!config.ttsEnabled} onCheckedChange={(checked) => setConfig({ ...config, ttsEnabled: checked })} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Save button */}
+              <div className="flex justify-end">
+                <Button disabled={savingConfig} onClick={async () => {
+                  setSavingConfig(true);
+                  try {
+                    const res = await fetch("/api/superadmin/config", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(config),
+                    });
+                    if (!res.ok) throw new Error();
+                    toast.success("Configuration globale enregistrée");
+                  } catch {
+                    toast.error("Erreur lors de l&apos;enregistrement");
+                  } finally {
+                    setSavingConfig(false);
+                  }
+                }}>
+                  <Save className="h-4 w-4 mr-1" />
+                  {savingConfig ? "Enregistrement…" : "Enregistrer"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </TabsContent>
 
         {/* Notification Templates */}
         <TabsContent value="templates">

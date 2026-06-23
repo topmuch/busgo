@@ -60,7 +60,7 @@ export async function GET() {
     };
   });
 
-  const monthlyTrend = [];
+  const monthlyTrend: { month: string; trajets: number; billets: number; boarded: number; rate: string }[] = [];
   for (let i = 5; i >= 0; i--) {
     const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);

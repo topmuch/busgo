@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building2, Search, Eye, Power, PowerOff, UserCog, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Building2, Search, Eye, Power, PowerOff, UserCog, CheckCircle2, XCircle, AlertTriangle, Plus } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -55,6 +56,24 @@ export default function TenantsPage() {
   const [editPlan, setEditPlan] = useState("");
   const [impersonateOpen, setImpersonateOpen] = useState(false);
   const [impersonateUser, setImpersonateUser] = useState<{ id: string; name: string; email: string; role: string } | null>(null);
+
+  // Create tenant
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    name: "",
+    slug: "",
+    adminName: "",
+    adminEmail: "",
+    adminPhone: "",
+    plan: "starter" as string,
+    country: "SN",
+  });
+  const slugManuallyEdited = useRef(false);
+
+  // Credentials dialog
+  const [credentialsOpen, setCredentialsOpen] = useState(false);
+  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
 
   const fetchTenants = useCallback(async () => {
     setLoading(true);
@@ -139,14 +158,19 @@ export default function TenantsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Entreprises</h1>
           <p className="text-muted-foreground">Gérez les compagnies clientes et leurs abonnements.</p>
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher une entreprise..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher une entreprise..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Button onClick={() => { setCreateForm({ name: "", slug: "", adminName: "", adminEmail: "", adminPhone: "", plan: "starter", country: "SN" }); slugManuallyEdited.current = false; setCreateOpen(true); }}>
+            <Plus className="h-4 w-4 mr-2" /> Créer une entreprise
+          </Button>
         </div>
       </div>
 
@@ -330,6 +354,174 @@ export default function TenantsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditPlanOpen(false)}>Annuler</Button>
             <Button onClick={handlePlanChange}>Enregistrer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Tenant Dialog */}
+      <Dialog open={createOpen} onOpenChange={(open) => { if (!open) { setCreateOpen(false); fetchTenants(); } }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Créer une entreprise</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setCreateLoading(true);
+              try {
+                const res = await fetch("/api/superadmin/tenants", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(createForm),
+                });
+                if (!res.ok) {
+                  const err = await res.json();
+                  toast.error(err.error || "Erreur lors de la création");
+                  return;
+                }
+                const data = await res.json();
+                setCredentials({ email: data.adminEmail, password: data.generatedPassword });
+                setCreateOpen(false);
+                setCredentialsOpen(true);
+                toast.success("Entreprise créée avec succès !");
+                fetchTenants();
+              } catch {
+                toast.error("Erreur lors de la création");
+              } finally {
+                setCreateLoading(false);
+              }
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="create-name">Nom de la compagnie *</Label>
+              <Input
+                id="create-name"
+                required
+                value={createForm.name}
+                onChange={(e) => {
+                  setCreateForm((f) => ({ ...f, name: e.target.value }));
+                  if (!slugManuallyEdited.current) {
+                    const slug = e.target.value
+                      .toLowerCase()
+                      .normalize("NFD")
+                      .replace(/[\u0300-\u036f]/g, "")
+                      .replace(/[^a-z0-9]+/g, "-")
+                      .replace(/(^-|-$)/g, "");
+                    setCreateForm((f) => ({ ...f, slug }));
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-slug">Slug *</Label>
+              <Input
+                id="create-slug"
+                required
+                value={createForm.slug}
+                onChange={(e) => {
+                  slugManuallyEdited.current = true;
+                  setCreateForm((f) => ({ ...f, slug: e.target.value }));
+                }}
+              />
+              <p className="text-xs text-muted-foreground">Identifiant unique (ex: dakar-express)</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-admin-name">Nom de l&apos;administrateur *</Label>
+              <Input
+                id="create-admin-name"
+                required
+                value={createForm.adminName}
+                onChange={(e) => setCreateForm((f) => ({ ...f, adminName: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-admin-email">Email admin *</Label>
+              <Input
+                id="create-admin-email"
+                type="email"
+                required
+                value={createForm.adminEmail}
+                onChange={(e) => setCreateForm((f) => ({ ...f, adminEmail: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-admin-phone">Téléphone admin *</Label>
+              <Input
+                id="create-admin-phone"
+                required
+                value={createForm.adminPhone}
+                onChange={(e) => setCreateForm((f) => ({ ...f, adminPhone: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-plan">Plan</Label>
+              <Select value={createForm.plan} onValueChange={(v) => setCreateForm((f) => ({ ...f, plan: v }))}>
+                <SelectTrigger id="create-plan"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="starter">Starter</SelectItem>
+                  <SelectItem value="pro">Pro</SelectItem>
+                  <SelectItem value="enterprise">Enterprise</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-country">Pays</Label>
+              <Input
+                id="create-country"
+                value={createForm.country}
+                onChange={(e) => setCreateForm((f) => ({ ...f, country: e.target.value }))}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Annuler</Button>
+              <Button type="submit" disabled={createLoading}>
+                {createLoading ? "Création..." : "Créer"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Credentials Dialog */}
+      <Dialog open={credentialsOpen} onOpenChange={setCredentialsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              Entreprise créée avec succès !
+            </DialogTitle>
+          </DialogHeader>
+          {credentials && (
+            <div className="space-y-4">
+              <div className="rounded-lg border p-4 bg-muted/50 space-y-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Email</p>
+                  <p className="font-mono text-sm font-medium">{credentials.email}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Mot de passe</p>
+                  <p className="font-mono text-sm font-medium">{credentials.password}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <p>Partagez ces identifiants avec l&apos;administrateur. Ce mot de passe ne sera plus affiché.</p>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  navigator.clipboard.writeText(`Email: ${credentials.email}\nMot de passe: ${credentials.password}`);
+                  toast.success("Identifiants copiés dans le presse-papiers");
+                }}
+              >
+                Copier les identifiants
+              </Button>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setCredentialsOpen(false)}>Fermer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

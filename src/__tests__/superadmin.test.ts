@@ -21,6 +21,7 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    auditLog: { create: vi.fn() },
     bus: { count: vi.fn(), findMany: vi.fn() },
     billet: { count: vi.fn(), findMany: vi.fn(), groupBy: vi.fn() },
     subscription: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
@@ -32,6 +33,7 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(),
       aggregate: vi.fn(),
       count: vi.fn(),
+      updateMany: vi.fn(),
     },
     trajet: { count: vi.fn(), groupBy: vi.fn(), findMany: vi.fn() },
   },
@@ -175,35 +177,43 @@ describe("SuperAdmin API - Tenants", () => {
         subscriptions: [{ status: "active", totalAmount: 40000 }],
       } as never,
     ]);
+    vi.mocked(db.tenant.count).mockResolvedValue(1);
 
-    const res = await getTenants();
+    const res = await getTenants(new Request("http://localhost/api/superadmin/tenants") as never);
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data).toHaveLength(1);
-    expect(data[0].name).toBe("Test Corp");
+    expect(data.tenants).toHaveLength(1);
+    expect(data.tenants[0].name).toBe("Test Corp");
   });
 
   it("PATCH should activate/deactivate tenant", async () => {
+    vi.mocked(db.tenant.findUnique).mockResolvedValue({
+      id: "t1", name: "Test", isActive: true,
+    } as never);
     vi.mocked(db.tenant.update).mockResolvedValue({
       id: "t1", name: "Test", isActive: false,
     } as never);
-    vi.mocked(db.systemLog.create).mockResolvedValue({} as never);
+    vi.mocked(db.user.updateMany).mockResolvedValue({ count: 2 } as never);
+    vi.mocked(db.auditLog.create).mockResolvedValue({} as never);
 
-    const res = await patchTenants(new Request("http://localhost", {
+    const res = await patchTenants(new Request("http://localhost/api/superadmin/tenants", {
       method: "PATCH",
       body: JSON.stringify({ tenantId: "t1", isActive: false }),
-    }));
+    }) as never);
 
     expect(res.status).toBe(200);
     expect(db.tenant.update).toHaveBeenCalledWith({
       where: { id: "t1" },
       data: { isActive: false },
     });
-    expect(db.systemLog.create).toHaveBeenCalledWith(
+    expect(db.user.updateMany).toHaveBeenCalledWith({
+      where: { tenantId: "t1" },
+      data: { isActive: false },
+    });
+    expect(db.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          action: "tenant_deactivated",
-          message: expect.stringContaining("désactivée"),
+          action: "tenant.deactivate",
         }),
       })
     );

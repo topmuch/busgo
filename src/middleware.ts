@@ -56,13 +56,13 @@ export async function middleware(request: NextRequest) {
 
   try {
     const secret = new TextEncoder().encode(
-      process.env.NEXTAUTH_SECRET || "fallback-secret"
+      process.env.NEXTAUTH_SECRET || "busgo-superadmin-secret-change-me-2024"
     );
     const { payload } = await jwtVerify(token, secret);
-    const role = (payload as Record<string, unknown>).token
-      ? ((payload as Record<string, unknown>).token as Record<string, unknown>)
-          .role
-      : (payload as Record<string, unknown>).role;
+    // Custom API token puts role at top level, NextAuth puts it in payload.token.role
+    const p = (payload as Record<string, unknown>);
+    const inner = p.token as Record<string, unknown> | undefined;
+    const role = inner?.role || p.role;
 
     if (!role || !requiredRoles.includes(role as string)) {
       // If user is authenticated but wrong role, redirect to unauthorized or login

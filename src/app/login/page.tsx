@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Bus, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +15,6 @@ const demoAccounts = [
 ];
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -41,34 +38,22 @@ export default function LoginPage() {
     try {
       const callbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
 
-      // First try to get role before signing in (for quick login buttons)
-      // Just sign in with redirect - NextAuth handles the cookie
-      const result = await signIn("credentials", {
-        email,
-        password,
-        callbackUrl: callbackUrl || undefined,
-        redirect: false,
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (result?.error) {
-        setError(result.error);
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setError(data.error || "Erreur de connexion");
         return;
       }
 
-      // Fetch session to determine role-based redirect
-      for (let i = 0; i < 3; i++) {
-        const res = await fetch("/api/auth/session");
-        const session = await res.json();
-        if (session?.user?.role) {
-          const dest = callbackUrl || getRedirectUrl(session.user.role);
-          window.location.href = dest;
-          return;
-        }
-        await new Promise(r => setTimeout(r, 300));
-      }
-
-      // Fallback: redirect to superadmin if no role found
-      window.location.href = callbackUrl || "/superadmin";
+      // Redirect based on role returned by API
+      const dest = callbackUrl || getRedirectUrl(data.user.role);
+      window.location.href = dest;
     } catch {
       setError("Une erreur est survenue");
     } finally {

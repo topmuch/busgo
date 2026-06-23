@@ -1,0 +1,1257 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useEffect, useState, useCallback } from "react";
+     4→     4→import { useParams, useRouter } from "next/navigation";
+     5→     5→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+     6→     6→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+     7→     7→import {
+     8→     8→  Table,
+     9→     9→  TableBody,
+    10→    10→  TableCell,
+    11→    11→  TableHead,
+    12→    12→  TableHeader,
+    13→    13→  TableRow,
+    14→    14→} from "@/components/ui/table";
+    15→    15→import { Badge } from "@/components/ui/badge";
+    16→    16→import { Button } from "@/components/ui/button";
+    17→    17→import { Skeleton } from "@/components/ui/skeleton";
+    18→    18→import { Separator } from "@/components/ui/separator";
+    19→    19→import { Input } from "@/components/ui/input";
+    20→    20→import { Label } from "@/components/ui/label";
+    21→    21→import {
+    22→    22→  AlertDialog,
+    23→    23→  AlertDialogAction,
+    24→    24→  AlertDialogCancel,
+    25→    25→  AlertDialogContent,
+    26→    26→  AlertDialogDescription,
+    27→    27→  AlertDialogFooter,
+    28→    28→  AlertDialogHeader,
+    29→    29→  AlertDialogTitle,
+    30→    30→} from "@/components/ui/alert-dialog";
+    31→    31→import {
+    32→    32→  Dialog,
+    33→    33→  DialogContent,
+    34→    34→  DialogFooter,
+    35→    35→  DialogHeader,
+    36→    36→  DialogTitle,
+    37→    37→} from "@/components/ui/dialog";
+    38→    38→import {
+    39→    39→  ArrowLeft,
+    40→    40→  Building2,
+    41→    41→  Users,
+    42→    42→  Bus as BusIcon,
+    43→    43→  Route,
+    44→    44→  FileText,
+    45→    45→  Mail,
+    46→    46→  Phone,
+    47→    47→  MapPin,
+    48→    48→  Globe,
+    49→    49→  Calendar,
+    50→    50→  CreditCard,
+    51→    51→  Palette,
+    52→    52→  AlertTriangle,
+    53→    53→  ShieldOff,
+    54→    54→  Clock,
+    55→    55→  UserCog,
+    56→    56→  Power,
+    57→    57→  PowerOff,
+    58→    58→  Trash2,
+    59→    59→  CheckCircle2,
+    60→    60→  Save,
+    61→    61→  Crown,
+    62→    62→} from "lucide-react";
+    63→    63→import { toast } from "sonner";
+    64→    64→import {
+    65→    65→  getSubscriptionStatusConfig,
+    66→    66→  getInvoiceStatusConfig,
+    67→    67→  formatFCFA,
+    68→    68→  getPlanLabel,
+    69→    69→} from "@/lib/superadmin-utils";
+    70→    70→
+    71→    71→/* ------------------------------------------------------------------ */
+    72→    72→/*  Types                                                              */
+    73→    73→/* ------------------------------------------------------------------ */
+    74→    74→
+    75→    75→interface TenantUser {
+    76→    76→  id: string;
+    77→    77→  name: string;
+    78→    78→  email: string;
+    79→    79→  phone: string;
+    80→    80→  role: string;
+    81→    81→  isActive: boolean;
+    82→    82→}
+    83→    83→
+    84→    84→interface TenantBus {
+    85→    85→  id: string;
+    86→    86→  number: string;
+    87→    87→  capacity: number;
+    88→    88→  isActive: boolean;
+    89→    89→}
+    90→    90→
+    91→    91→interface TenantTrajet {
+    92→    92→  id: string;
+    93→    93→  origin: string;
+    94→    94→  destination: string;
+    95→    95→  date: string;
+    96→    96→  time: string;
+    97→    97→  price: number;
+    98→    98→  status: string;
+    99→    99→  createdAt: string;
+   100→   100→}
+   101→   101→
+   102→   102→interface TenantInvoice {
+   103→   103→  id: string;
+   104→   104→  invoiceNumber: string | null;
+   105→   105→  total: number;
+   106→   106→  status: string;
+   107→   107→  dueDate: string;
+   108→   108→  paidAt: string | null;
+   109→   109→  invoiceDate: string;
+   110→   110→  numberOfBuses: number;
+   111→   111→  pricePerBus: number;
+   112→   112→  subtotal: number;
+   113→   113→  tax: number;
+   114→   114→}
+   115→   115→
+   116→   116→interface TenantSubscription {
+   117→   117→  id: string;
+   118→   118→  plan: string;
+   119→   119→  status: string;
+   120→   120→  startDate: string;
+   121→   121→  endDate: string;
+   122→   122→  pricePerBus: number;
+   123→   123→  busCount: number;
+   124→   124→  totalAmount: number;
+   125→   125→  createdAt: string;
+   126→   126→  updatedAt: string;
+   127→   127→}
+   128→   128→
+   129→   129→interface Tenant {
+   130→   130→  id: string;
+   131→   131→  name: string;
+   132→   132→  slug: string;
+   133→   133→  phone: string | null;
+   134→   134→  email: string | null;
+   135→   135→  address: string | null;
+   136→   136→  country: string;
+   137→   137→  adminEmail: string | null;
+   138→   138→  adminPhone: string | null;
+   139→   139→  logo: string | null;
+   140→   140→  primaryColor: string;
+   141→   141→  secondaryColor: string;
+   142→   142→  plan: string;
+   143→   143→  subscriptionStatus: string;
+   144→   144→  subscriptionStart: string | null;
+   145→   145→  subscriptionEnd: string | null;
+   146→   146→  isActive: boolean;
+   147→   147→  isSuspended: boolean;
+   148→   148→  suspensionReason: string | null;
+   149→   149→  suspendedAt: string | null;
+   150→   150→  totalRevenue: number;
+   151→   151→  lastLoginAt: string | null;
+   152→   152→  createdAt: string;
+   153→   153→  updatedAt: string;
+   154→   154→  users: TenantUser[];
+   155→   155→  buses: TenantBus[];
+   156→   156→  trajets: TenantTrajet[];
+   157→   157→  invoices: TenantInvoice[];
+   158→   158→  subscriptions: TenantSubscription[];
+   159→   159→}
+   160→   160→
+   161→   161→/* ------------------------------------------------------------------ */
+   162→   162→/*  Helpers                                                            */
+   163→   163→/* ------------------------------------------------------------------ */
+   164→   164→
+   165→   165→const formatDate = (date: string | null | undefined) => {
+   166→   166→  if (!date) return "—";
+   167→   167→  return new Date(date).toLocaleDateString("fr-FR", {
+   168→   168→    day: "2-digit",
+   169→   169→    month: "short",
+   170→   170→    year: "numeric",
+   171→   171→  });
+   172→   172→};
+   173→   173→
+   174→   174→const formatDateTime = (date: string | null | undefined) => {
+   175→   175→  if (!date) return "—";
+   176→   176→  return new Date(date).toLocaleDateString("fr-FR", {
+   177→   177→    day: "2-digit",
+   178→   178→    month: "short",
+   179→   179→    year: "numeric",
+   180→   180→    hour: "2-digit",
+   181→   181→    minute: "2-digit",
+   182→   182→  });
+   183→   183→};
+   184→   184→
+   185→   185→const planColors: Record<string, string> = {
+   186→   186→  free: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+   187→   187→  starter:
+   188→   188→    "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+   189→   189→  pro: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400",
+   190→   190→  enterprise:
+   191→   191→    "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
+   192→   192→};
+   193→   193→
+   194→   194→const roleBadgeColors: Record<string, string> = {
+   195→   195→  admin:
+   196→   196→    "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400",
+   197→   197→  agent: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
+   198→   198→  client:
+   199→   199→    "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+   200→   200→};
+   201→   201→
+   202→   202→const trajetStatusConfig: Record<
+   203→   203→  string,
+   204→   204→  { label: string; className: string }
+   205→   205→> = {
+   206→   206→  scheduled: {
+   207→   207→    label: "Planifié",
+   208→   208→    className:
+   209→   209→      "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
+   210→   210→  },
+   211→   211→  boarding: {
+   212→   212→    label: "Embarquement",
+   213→   213→    className:
+   214→   214→      "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
+   215→   215→  },
+   216→   216→  departed: {
+   217→   217→    label: "Départ",
+   218→   218→    className:
+   219→   219→      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400",
+   220→   220→  },
+   221→   221→  arrived: {
+   222→   222→    label: "Arrivé",
+   223→   223→    className:
+   224→   224→      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400",
+   225→   225→  },
+   226→   226→  cancelled: {
+   227→   227→    label: "Annulé",
+   228→   228→    className:
+   229→   229→      "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400",
+   230→   230→  },
+   231→   231→};
+   232→   232→
+   233→   233→const getTenantStatus = (t: Tenant) => {
+   234→   234→  if (t.isSuspended)
+   235→   235→    return { label: "Suspendue", variant: "destructive" as const };
+   236→   236→  if (!t.isActive) return { label: "Inactive", variant: "secondary" as const };
+   237→   237→  return { label: "Active", variant: "default" as const };
+   238→   238→};
+   239→   239→
+   240→   240→/* ------------------------------------------------------------------ */
+   241→   241→/*  Info Row helper                                                    */
+   242→   242→/* ------------------------------------------------------------------ */
+   243→   243→
+   244→   244→function InfoRow({
+   245→   245→  icon: Icon,
+   246→   246→  label,
+   247→   247→  value,
+   248→   248→}: {
+   249→   249→  icon: React.ComponentType<{ className?: string }>;
+   250→   250→  label: string;
+   251→   251→  value: React.ReactNode;
+   252→   252→}) {
+   253→   253→  return (
+   254→   254→    <div className="flex items-start gap-3 text-sm">
+   255→   255→      <Icon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+   256→   256→      <div className="min-w-0">
+   257→   257→        <p className="text-muted-foreground text-xs">{label}</p>
+   258→   258→        <p className="font-medium truncate">{value || "—"}</p>
+   259→   259→      </div>
+   260→   260→    </div>
+   261→   261→  );
+   262→   262→}
+   263→   263→
+   264→   264→/* ------------------------------------------------------------------ */
+   265→   265→/*  Page Component                                                     */
+   266→   266→/* ------------------------------------------------------------------ */
+   267→   267→
+   268→   268→export default function TenantDetailPage() {
+   269→   269→  const params = useParams();
+   270→   270→  const router = useRouter();
+   271→   271→  const id = params.id as string;
+   272→   272→
+   273→   273→  const [tenant, setTenant] = useState<Tenant | null>(null);
+   274→   274→  const [loading, setLoading] = useState(true);
+   275→   275→  const [notFound, setNotFound] = useState(false);
+   276→   276→
+   277→   277→  /* --- Dialog states --- */
+   278→   278→  const [impersonateUser, setImpersonateUser] =
+   279→   279→    useState<TenantUser | null>(null);
+   280→   280→  const [impersonateOpen, setImpersonateOpen] = useState(false);
+   281→   281→  const [impersonateLoading, setImpersonateLoading] = useState(false);
+   282→   282→
+   283→   283→  const [deleteOpen, setDeleteOpen] = useState(false);
+   284→   284→  const [deleteLoading, setDeleteLoading] = useState(false);
+   285→   285→
+   286→   286→  const [suspendOpen, setSuspendOpen] = useState(false);
+   287→   287→  const [suspendReason, setSuspendReason] = useState("");
+   288→   288→  const [suspendLoading, setSuspendLoading] = useState(false);
+   289→   289→
+   290→   290→  /* ---- Fetch ---- */
+   291→   291→  const fetchTenant = useCallback(async () => {
+   292→   292→    setLoading(true);
+   293→   293→    setNotFound(false);
+   294→   294→    try {
+   295→   295→      const res = await fetch(`/api/superadmin/tenants/${id}`);
+   296→   296→      if (res.status === 404) {
+   297→   297→        setNotFound(true);
+   298→   298→        return;
+   299→   299→      }
+   300→   300→      if (!res.ok) throw new Error("Erreur serveur");
+   301→   301→      const data: Tenant = await res.json();
+   302→   302→      setTenant(data);
+   303→   303→    } catch {
+   304→   304→      toast.error("Impossible de charger les données");
+   305→   305→    } finally {
+   306→   306→      setLoading(false);
+   307→   307→    }
+   308→   308→  }, [id]);
+   309→   309→
+   310→   310→  useEffect(() => {
+   311→   311→    fetchTenant();
+   312→   312→  }, [fetchTenant]);
+   313→   313→
+   314→   314→  /* ---- Actions ---- */
+   315→   315→
+   316→   316→  const handleSuspend = async () => {
+   317→   317→    if (!tenant || !suspendReason.trim()) return;
+   318→   318→    setSuspendLoading(true);
+   319→   319→    try {
+   320→   320→      const res = await fetch(`/api/superadmin/tenants/${id}/suspend`, {
+   321→   321→        method: "POST",
+   322→   322→        headers: { "Content-Type": "application/json" },
+   323→   323→        body: JSON.stringify({ reason: suspendReason }),
+   324→   324→      });
+   325→   325→      if (!res.ok) throw new Error();
+   326→   326→      toast.success(`${tenant.name} suspendue`);
+   327→   327→      setSuspendOpen(false);
+   328→   328→      setSuspendReason("");
+   329→   329→      fetchTenant();
+   330→   330→    } catch {
+   331→   331→      toast.error("Erreur lors de la suspension");
+   332→   332→    } finally {
+   333→   333→      setSuspendLoading(false);
+   334→   334→    }
+   335→   335→  };
+   336→   336→
+   337→   337→  const handleReactivate = async () => {
+   338→   338→    if (!tenant) return;
+   339→   339→    try {
+   340→   340→      const res = await fetch(`/api/superadmin/tenants/${id}/reactivate`, {
+   341→   341→        method: "POST",
+   342→   342→      });
+   343→   343→      if (!res.ok) throw new Error();
+   344→   344→      toast.success(`${tenant.name} réactivée`);
+   345→   345→      fetchTenant();
+   346→   346→    } catch {
+   347→   347→      toast.error("Erreur lors de la réactivation");
+   348→   348→    }
+   349→   349→  };
+   350→   350→
+   351→   351→  const handleDelete = async () => {
+   352→   352→    if (!tenant) return;
+   353→   353→    setDeleteLoading(true);
+   354→   354→    try {
+   355→   355→      const res = await fetch(`/api/superadmin/tenants/${id}?confirm=true`, {
+   356→   356→        method: "DELETE",
+   357→   357→      });
+   358→   358→      if (!res.ok) throw new Error();
+   359→   359→      toast.success(`${tenant.name} supprimée`);
+   360→   360→      router.push("/superadmin/tenants");
+   361→   361→    } catch {
+   362→   362→      toast.error("Erreur lors de la suppression");
+   363→   363→    } finally {
+   364→   364→      setDeleteLoading(false);
+   365→   365→    }
+   366→   366→  };
+   367→   367→
+   368→   368→  const handleImpersonate = async () => {
+   369→   369→    if (!impersonateUser) return;
+   370→   370→    setImpersonateLoading(true);
+   371→   371→    try {
+   372→   372→      const res = await fetch("/api/superadmin/impersonate", {
+   373→   373→        method: "POST",
+   374→   374→        headers: { "Content-Type": "application/json" },
+   375→   375→        body: JSON.stringify({ userId: impersonateUser.id }),
+   376→   376→      });
+   377→   377→      const data = await res.json();
+   378→   378→      document.cookie = `next-auth.session-token=${data.token}; path=/; max-age=3600`;
+   379→   379→      toast.success(`Connecté en tant que ${data.user.name}`);
+   380→   380→      setImpersonateOpen(false);
+   381→   381→
+   382→   382→      const roleRoutes: Record<string, string> = {
+   383→   383→        admin: "/admin",
+   384→   384→        agent: "/agent",
+   385→   385→        client: "/client",
+   386→   386→      };
+   387→   387→      router.push(roleRoutes[impersonateUser.role] || "/");
+   388→   388→      router.refresh();
+   389→   389→    } catch {
+   390→   390→      toast.error("Erreur lors de l'impersonation");
+   391→   391→    } finally {
+   392→   392→      setImpersonateLoading(false);
+   393→   393→    }
+   394→   394→  };
+   395→   395→
+   396→   396→  const handleMarkPaid = async (invoiceId: string) => {
+   397→   397→    try {
+   398→   398→      const res = await fetch(`/api/superadmin/invoices/${invoiceId}`, {
+   399→   399→        method: "PATCH",
+   400→   400→        headers: { "Content-Type": "application/json" },
+   401→   401→        body: JSON.stringify({ status: "paid" }),
+   402→   402→      });
+   403→   403→      if (!res.ok) throw new Error();
+   404→   404→      toast.success("Facture marquée comme payée");
+   405→   405→      fetchTenant();
+   406→   406→    } catch {
+   407→   407→      toast.error("Erreur lors de la mise à jour");
+   408→   408→    }
+   409→   409→  };
+   410→   410→
+   411→   411→  /* ---------------------------------------------------------------- */
+   412→   412→  /*  404 state                                                        */
+   413→   413→  /* ---------------------------------------------------------------- */
+   414→   414→
+   415→   415→  if (notFound) {
+   416→   416→    return (
+   417→   417→      <div className="flex flex-col items-center justify-center gap-4 py-20">
+   418→   418→        <AlertTriangle className="h-12 w-12 text-muted-foreground" />
+   419→   419→        <h2 className="text-xl font-semibold">Compagnie non trouvée</h2>
+   420→   420→        <p className="text-sm text-muted-foreground">
+   421→   421→          Cette compagnie n&apos;existe pas ou a été supprimée.
+   422→   422→        </p>
+   423→   423→        <Button
+   424→   424→          variant="outline"
+   425→   425→          onClick={() => router.push("/superadmin/tenants")}
+   426→   426→        >
+   427→   427→          <ArrowLeft className="h-4 w-4 mr-2" />
+   428→   428→          Retour aux compagnies
+   429→   429→        </Button>
+   430→   430→      </div>
+   431→   431→    );
+   432→   432→  }
+   433→   433→
+   434→   434→  /* ---------------------------------------------------------------- */
+   435→   435→  /*  Loading skeleton                                                 */
+   436→   436→  /* ---------------------------------------------------------------- */
+   437→   437→
+   438→   438→  if (loading || !tenant) {
+   439→   439→    return (
+   440→   440→      <div className="space-y-6">
+   441→   441→        <div className="flex items-center gap-4">
+   442→   442→          <Skeleton className="h-9 w-9 rounded-md" />
+   443→   443→          <Skeleton className="h-8 w-48" />
+   444→   444→          <Skeleton className="h-6 w-24" />
+   445→   445→          <Skeleton className="h-6 w-20" />
+   446→   446→        </div>
+   447→   447→        <Skeleton className="h-10 w-[500px]" />
+   448→   448→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   449→   449→          {Array.from({ length: 4 }).map((_, i) => (
+   450→   450→            <Card key={i}>
+   451→   451→              <CardContent className="p-5 space-y-2">
+   452→   452→                <Skeleton className="h-4 w-24" />
+   453→   453→                <Skeleton className="h-7 w-16" />
+   454→   454→              </CardContent>
+   455→   455→            </Card>
+   456→   456→          ))}
+   457→   457→        </div>
+   458→   458→        <div className="grid gap-4 lg:grid-cols-2">
+   459→   459→          {Array.from({ length: 2 }).map((_, i) => (
+   460→   460→            <Skeleton key={i} className="h-56 w-full rounded-xl" />
+   461→   461→          ))}
+   462→   462→        </div>
+   463→   463→      </div>
+   464→   464→    );
+   465→   465→  }
+   466→   466→
+   467→   467→  /* ---------------------------------------------------------------- */
+   468→   468→  /*  Rendered page                                                    */
+   469→   469→  /* ---------------------------------------------------------------- */
+   470→   470→
+   471→   471→  const status = getTenantStatus(tenant);
+   472→   472→  const latestSub = tenant.subscriptions?.[0] ?? null;
+   473→   473→  const subStatusCfg = getSubscriptionStatusConfig(tenant.subscriptionStatus);
+   474→   474→
+   475→   475→  return (
+   476→   476→    <div className="space-y-6">
+   477→   477→      {/* ===================== HEADER ===================== */}
+   478→   478→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   479→   479→        <div className="flex items-center gap-3">
+   480→   480→          <Button
+   481→   481→            variant="ghost"
+   482→   482→            size="icon"
+   483→   483→            onClick={() => router.push("/superadmin/tenants")}
+   484→   484→          >
+   485→   485→            <ArrowLeft className="h-5 w-5" />
+   486→   486→          </Button>
+   487→   487→          <div className="flex items-center gap-3">
+   488→   488→            <Building2 className="h-6 w-6 text-violet-600" />
+   489→   489→            <h1 className="text-2xl font-bold tracking-tight">
+   490→   490→              {tenant.name}
+   491→   491→            </h1>
+   492→   492→          </div>
+   493→   493→          <Badge variant="outline" className="font-mono text-xs">
+   494→   494→            @{tenant.slug}
+   495→   495→          </Badge>
+   496→   496→        </div>
+   497→   497→        <div className="flex items-center gap-2 flex-wrap">
+   498→   498→          <Badge variant={status.variant}>{status.label}</Badge>
+   499→   499→          <Badge variant="outline" className={planColors[tenant.plan] ?? ""}>
+   500→   500→            <Crown className="h-3 w-3 mr-1" />
+   501→   501→            {getPlanLabel(tenant.plan)}
+   502→   502→          </Badge>
+   503→   503→        </div>
+   504→   504→      </div>
+   505→   505→
+   506→   506→      {/* ===================== TABS ====================== */}
+   507→   507→      <Tabs defaultValue="overview">
+   508→   508→        <TabsList className="w-full sm:w-auto">
+   509→   509→          <TabsTrigger value="overview" className="gap-1.5">
+   510→   510→            <Building2 className="h-4 w-4 hidden sm:inline-block" />
+   511→   511→            Vue d&apos;ensemble
+   512→   512→          </TabsTrigger>
+   513→   513→          <TabsTrigger value="users" className="gap-1.5">
+   514→   514→            <Users className="h-4 w-4 hidden sm:inline-block" />
+   515→   515→            Utilisateurs
+   516→   516→          </TabsTrigger>
+   517→   517→          <TabsTrigger value="buses" className="gap-1.5">
+   518→   518→            <BusIcon className="h-4 w-4 hidden sm:inline-block" />
+   519→   519→            Bus
+   520→   520→          </TabsTrigger>
+   521→   521→          <TabsTrigger value="trajets" className="gap-1.5">
+   522→   522→            <Route className="h-4 w-4 hidden sm:inline-block" />
+   523→   523→            Trajets
+   524→   524→          </TabsTrigger>
+   525→   525→          <TabsTrigger value="invoices" className="gap-1.5">
+   526→   526→            <FileText className="h-4 w-4 hidden sm:inline-block" />
+   527→   527→            Factures
+   528→   528→          </TabsTrigger>
+   529→   529→        </TabsList>
+   530→   530→
+   531→   531→        {/* ============ TAB 1: Vue d'ensemble ============ */}
+   532→   532→        <TabsContent value="overview" className="space-y-6 mt-4">
+   533→   533→          {/* Suspension warning */}
+   534→   534→          {tenant.isSuspended && (
+   535→   535→            <Card className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+   536→   536→              <CardContent className="p-4 flex items-start gap-3">
+   537→   537→                <ShieldOff className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+   538→   538→                <div className="space-y-1">
+   539→   539→                  <p className="font-semibold text-amber-800 dark:text-amber-300">
+   540→   540→                    Compagnie suspendue
+   541→   541→                  </p>
+   542→   542→                  <p className="text-sm text-amber-700 dark:text-amber-400">
+   543→   543→                    {tenant.suspensionReason || "Aucune raison spécifiée"}
+   544→   544→                  </p>
+   545→   545→                  {tenant.suspendedAt && (
+   546→   546→                    <p className="text-xs text-amber-600/80 dark:text-amber-500/80">
+   547→   547→                      Suspendue le {formatDateTime(tenant.suspendedAt)}
+   548→   548→                    </p>
+   549→   549→                  )}
+   550→   550→                </div>
+   551→   551→              </CardContent>
+   552→   552→            </Card>
+   553→   553→          )}
+   554→   554→
+   555→   555→          {/* Info cards grid */}
+   556→   556→          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   557→   557→            {/* Identité */}
+   558→   558→            <Card>
+   559→   559→              <CardHeader className="pb-3">
+   560→   560→                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+   561→   561→                  <Building2 className="h-4 w-4" />
+   562→   562→                  Identité
+   563→   563→                </CardTitle>
+   564→   564→              </CardHeader>
+   565→   565→              <CardContent className="space-y-3 text-sm">
+   566→   566→                <div>
+   567→   567→                  <p className="text-muted-foreground text-xs">Nom</p>
+   568→   568→                  <p className="font-medium">{tenant.name}</p>
+   569→   569→                </div>
+   570→   570→                <div>
+   571→   571→                  <p className="text-muted-foreground text-xs">Slug</p>
+   572→   572→                  <p className="font-mono text-xs">{tenant.slug}</p>
+   573→   573→                </div>
+   574→   574→                <InfoRow icon={Mail} label="Email" value={tenant.email} />
+   575→   575→                <InfoRow icon={Phone} label="Téléphone" value={tenant.phone} />
+   576→   576→                <InfoRow icon={MapPin} label="Adresse" value={tenant.address} />
+   577→   577→                <InfoRow icon={Globe} label="Pays" value={tenant.country} />
+   578→   578→                <InfoRow
+   579→   579→                  icon={Calendar}
+   580→   580→                  label="Créé le"
+   581→   581→                  value={formatDate(tenant.createdAt)}
+   582→   582→                />
+   583→   583→              </CardContent>
+   584→   584→            </Card>
+   585→   585→
+   586→   586→            {/* Abonnement */}
+   587→   587→            <Card>
+   588→   588→              <CardHeader className="pb-3">
+   589→   589→                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+   590→   590→                  <CreditCard className="h-4 w-4" />
+   591→   591→                  Abonnement
+   592→   592→                </CardTitle>
+   593→   593→              </CardHeader>
+   594→   594→              <CardContent className="space-y-3 text-sm">
+   595→   595→                <div>
+   596→   596→                  <p className="text-muted-foreground text-xs">Plan</p>
+   597→   597→                  <div className="mt-1">
+   598→   598→                    <Badge
+   599→   599→                      variant="outline"
+   600→   600→                      className={planColors[tenant.plan] ?? ""}
+   601→   601→                    >
+   602→   602→                      <Crown className="h-3 w-3 mr-1" />
+   603→   603→                      {getPlanLabel(tenant.plan)}
+   604→   604→                    </Badge>
+   605→   605→                  </div>
+   606→   606→                </div>
+   607→   607→                <div>
+   608→   608→                  <p className="text-muted-foreground text-xs">Statut</p>
+   609→   609→                  <div className="mt-1">
+   610→   610→                    <Badge className={subStatusCfg.className}>
+   611→   611→                      {subStatusCfg.label}
+   612→   612→                    </Badge>
+   613→   613→                  </div>
+   614→   614→                </div>
+   615→   615→                <InfoRow
+   616→   616→                  icon={Calendar}
+   617→   617→                  label="Début"
+   618→   618→                  value={formatDate(tenant.subscriptionStart)}
+   619→   619→                />
+   620→   620→                <InfoRow
+   621→   621→                  icon={Calendar}
+   622→   622→                  label="Fin"
+   623→   623→                  value={formatDate(tenant.subscriptionEnd)}
+   624→   624→                />
+   625→   625→                {latestSub && (
+   626→   626→                  <>
+   627→   627→                    <Separator />
+   628→   628→                    <p className="text-xs text-muted-foreground font-medium">
+   629→   629→                      Dernier abonnement
+   630→   630→                    </p>
+   631→   631→                    <div className="text-xs space-y-1.5">
+   632→   632→                      <div className="flex justify-between">
+   633→   633→                        <span className="text-muted-foreground">Bus</span>
+   634→   634→                        <span className="font-medium">
+   635→   635→                          {latestSub.busCount}
+   636→   636→                        </span>
+   637→   637→                      </div>
+   638→   638→                      <div className="flex justify-between">
+   639→   639→                        <span className="text-muted-foreground">
+   640→   640→                          Prix / bus
+   641→   641→                        </span>
+   642→   642→                        <span className="font-medium">
+   643→   643→                          {formatFCFA(latestSub.pricePerBus)}
+   644→   644→                        </span>
+   645→   645→                      </div>
+   646→   646→                      <div className="flex justify-between">
+   647→   647→                        <span className="text-muted-foreground">Total</span>
+   648→   648→                        <span className="font-bold text-violet-600 dark:text-violet-400">
+   649→   649→                          {formatFCFA(latestSub.totalAmount)}
+   650→   650→                        </span>
+   651→   651→                      </div>
+   652→   652→                    </div>
+   653→   653→                  </>
+   654→   654→                )}
+   655→   655→              </CardContent>
+   656→   656→            </Card>
+   657→   657→
+   658→   658→            {/* Statistiques */}
+   659→   659→            <Card>
+   660→   660→              <CardHeader className="pb-3">
+   661→   661→                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+   662→   662→                  <Route className="h-4 w-4" />
+   663→   663→                  Statistiques
+   664→   664→                </CardTitle>
+   665→   665→              </CardHeader>
+   666→   666→              <CardContent className="space-y-4">
+   667→   667→                <div className="flex items-center gap-3">
+   668→   668→                  <div className="h-9 w-9 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+   669→   669→                    <Users className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+   670→   670→                  </div>
+   671→   671→                  <div>
+   672→   672→                    <p className="text-xs text-muted-foreground">
+   673→   673→                      Utilisateurs
+   674→   674→                    </p>
+   675→   675→                    <p className="text-xl font-bold">
+   676→   676→                      {tenant.users.length}
+   677→   677→                    </p>
+   678→   678→                  </div>
+   679→   679→                </div>
+   680→   680→                <div className="flex items-center gap-3">
+   681→   681→                  <div className="h-9 w-9 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+   682→   682→                    <BusIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+   683→   683→                  </div>
+   684→   684→                  <div>
+   685→   685→                    <p className="text-xs text-muted-foreground">Bus</p>
+   686→   686→                    <p className="text-xl font-bold">
+   687→   687→                      {tenant.buses.length}
+   688→   688→                    </p>
+   689→   689→                  </div>
+   690→   690→                </div>
+   691→   691→                <div className="flex items-center gap-3">
+   692→   692→                  <div className="h-9 w-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+   693→   693→                    <Route className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+   694→   694→                  </div>
+   695→   695→                  <div>
+   696→   696→                    <p className="text-xs text-muted-foreground">Trajets</p>
+   697→   697→                    <p className="text-xl font-bold">
+   698→   698→                      {tenant.trajets.length}
+   699→   699→                    </p>
+   700→   700→                  </div>
+   701→   701→                </div>
+   702→   702→                <div className="flex items-center gap-3">
+   703→   703→                  <div className="h-9 w-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+   704→   704→                    <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+   705→   705→                  </div>
+   706→   706→                  <div>
+   707→   707→                    <p className="text-xs text-muted-foreground">Factures</p>
+   708→   708→                    <p className="text-xl font-bold">
+   709→   709→                      {tenant.invoices.length}
+   710→   710→                    </p>
+   711→   711→                  </div>
+   712→   712→                </div>
+   713→   713→                <div className="flex items-center gap-3">
+   714→   714→                  <div className="h-9 w-9 rounded-lg bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+   715→   715→                    <CreditCard className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+   716→   716→                  </div>
+   717→   717→                  <div>
+   718→   718→                    <p className="text-xs text-muted-foreground">
+   719→   719→                      Revenu total
+   720→   720→                    </p>
+   721→   721→                    <p className="text-xl font-bold">
+   722→   722→                      {formatFCFA(tenant.totalRevenue)}
+   723→   723→                    </p>
+   724→   724→                  </div>
+   725→   725→                </div>
+   726→   726→              </CardContent>
+   727→   727→            </Card>
+   728→   728→
+   729→   729→            {/* Branding */}
+   730→   730→            <Card>
+   731→   731→              <CardHeader className="pb-3">
+   732→   732→                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+   733→   733→                  <Palette className="h-4 w-4" />
+   734→   734→                  Branding
+   735→   735→                </CardTitle>
+   736→   736→              </CardHeader>
+   737→   737→              <CardContent className="space-y-4">
+   738→   738→                <div>
+   739→   739→                  <p className="text-xs text-muted-foreground mb-2">
+   740→   740→                    Couleurs
+   741→   741→                  </p>
+   742→   742→                  <div className="flex items-center gap-4">
+   743→   743→                    <div className="flex items-center gap-2">
+   744→   744→                      <div
+   745→   745→                        className="h-8 w-8 rounded-full border-2 border-white shadow-sm"
+   746→   746→                        style={{ backgroundColor: tenant.primaryColor }}
+   747→   747→                      />
+   748→   748→                      <span className="text-xs font-mono text-muted-foreground">
+   749→   749→                        Primaire
+   750→   750→                      </span>
+   751→   751→                    </div>
+   752→   752→                    <div className="flex items-center gap-2">
+   753→   753→                      <div
+   754→   754→                        className="h-8 w-8 rounded-full border-2 border-white shadow-sm"
+   755→   755→                        style={{ backgroundColor: tenant.secondaryColor }}
+   756→   756→                      />
+   757→   757→                      <span className="text-xs font-mono text-muted-foreground">
+   758→   758→                        Secondaire
+   759→   759→                      </span>
+   760→   760→                    </div>
+   761→   761→                  </div>
+   762→   762→                </div>
+   763→   763→                {tenant.logo && (
+   764→   764→                  <div>
+   765→   765→                    <p className="text-xs text-muted-foreground mb-2">Logo</p>
+   766→   766→                    <div className="h-16 w-16 rounded-lg border bg-muted flex items-center justify-center overflow-hidden">
+   767→   767→                      <img
+   768→   768→                        src={tenant.logo}
+   769→   769→                        alt={`Logo ${tenant.name}`}
+   770→   770→                        className="h-full w-full object-contain p-1"
+   771→   771→                      />
+   772→   772→                    </div>
+   773→   773→                  </div>
+   774→   774→                )}
+   775→   775→                {!tenant.logo && (
+   776→   776→                  <div>
+   777→   777→                    <p className="text-xs text-muted-foreground mb-2">Logo</p>
+   778→   778→                    <div className="h-16 w-16 rounded-lg border border-dashed bg-muted/50 flex items-center justify-center">
+   779→   779→                      <span className="text-xs text-muted-foreground">
+   780→   780→                        Aucun
+   781→   781→                      </span>
+   782→   782→                    </div>
+   783→   783→                  </div>
+   784→   784→                )}
+   785→   785→                <div>
+   786→   786→                  <p className="text-xs text-muted-foreground">
+   787→   787→                    Admin email
+   788→   788→                  </p>
+   789→   789→                  <p className="text-sm font-medium truncate">
+   790→   790→                    {tenant.adminEmail || "—"}
+   791→   791→                  </p>
+   792→   792→                </div>
+   793→   793→                <div>
+   794→   794→                  <p className="text-xs text-muted-foreground">
+   795→   795→                    Admin téléphone
+   796→   796→                  </p>
+   797→   797→                  <p className="text-sm font-medium">
+   798→   798→                    {tenant.adminPhone || "—"}
+   799→   799→                  </p>
+   800→   800→                </div>
+   801→   801→                <div>
+   802→   802→                  <p className="text-xs text-muted-foreground">
+   803→   803→                    Dernière connexion
+   804→   804→                  </p>
+   805→   805→                  <p className="text-sm font-medium">
+   806→   806→                    {tenant.lastLoginAt
+   807→   807→                      ? formatDateTime(tenant.lastLoginAt)
+   808→   808→                      : "Jamais"}
+   809→   809→                  </p>
+   810→   810→                </div>
+   811→   811→              </CardContent>
+   812→   812→            </Card>
+   813→   813→          </div>
+   814→   814→
+   815→   815→          {/* Actions row */}
+   816→   816→          <Card>
+   817→   817→            <CardContent className="p-5 flex flex-wrap gap-3">
+   818→   818→              {tenant.isSuspended ? (
+   819→   819→                <Button
+   820→   820→                  variant="outline"
+   821→   821→                  className="text-emerald-600 hover:text-emerald-700 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-900/20"
+   822→   822→                  onClick={handleReactivate}
+   823→   823→                >
+   824→   824→                  <Power className="h-4 w-4 mr-2" />
+   825→   825→                  Réactiver
+   826→   826→                </Button>
+   827→   827→              ) : (
+   828→   828→                <Button
+   829→   829→                  variant="outline"
+   830→   830→                  className="text-amber-600 hover:text-amber-700 border-amber-200 hover:bg-amber-50 dark:border-amber-800 dark:hover:bg-amber-900/20"
+   831→   831→                  onClick={() => setSuspendOpen(true)}
+   832→   832→                >
+   833→   833→                  <PowerOff className="h-4 w-4 mr-2" />
+   834→   834→                  Suspendre
+   835→   835→                </Button>
+   836→   836→              )}
+   837→   837→
+   838→   838→              <Button
+   839→   839→                variant="outline"
+   840→   840→                className="text-rose-600 hover:text-rose-700 border-rose-200 hover:bg-rose-50 dark:border-rose-800 dark:hover:bg-rose-900/20"
+   841→   841→                onClick={() => setDeleteOpen(true)}
+   842→   842→              >
+   843→   843→                <Trash2 className="h-4 w-4 mr-2" />
+   844→   844→                Supprimer
+   845→   845→              </Button>
+   846→   846→
+   847→   847→              {tenant.users.length > 0 && (
+   848→   848→                <Button
+   849→   849→                  variant="outline"
+   850→   850→                  onClick={() => {
+   851→   851→                    setImpersonateUser(tenant.users[0]);
+   852→   852→                    setImpersonateOpen(true);
+   853→   853→                  }}
+   854→   854→                >
+   855→   855→                  <UserCog className="h-4 w-4 mr-2" />
+   856→   856→                  Impersoner l&apos;admin
+   857→   857→                </Button>
+   858→   858→              )}
+   859→   859→            </CardContent>
+   860→   860→          </Card>
+   861→   861→        </TabsContent>
+   862→   862→
+   863→   863→        {/* ============ TAB 2: Utilisateurs ============ */}
+   864→   864→        <TabsContent value="users" className="mt-4">
+   865→   865→          <Card>
+   866→   866→            <CardHeader>
+   867→   867→              <CardTitle className="text-base flex items-center gap-2">
+   868→   868→                <Users className="h-5 w-5 text-violet-600" />
+   869→   869→                Utilisateurs ({tenant.users.length})
+   870→   870→              </CardTitle>
+   871→   871→            </CardHeader>
+   872→   872→            <CardContent className="p-0">
+   873→   873→              {tenant.users.length === 0 ? (
+   874→   874→                <div className="py-12 text-center">
+   875→   875→                  <Users className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+   876→   876→                  <p className="text-sm text-muted-foreground">
+   877→   877→                    Aucun utilisateur pour cette compagnie
+   878→   878→                  </p>
+   879→   879→                </div>
+   880→   880→              ) : (
+   881→   881→                <div className="max-h-96 overflow-y-auto">
+   882→   882→                  <Table>
+   883→   883→                    <TableHeader>
+   884→   884→                      <TableRow>
+   885→   885→                        <TableHead>Nom</TableHead>
+   886→   886→                        <TableHead>Email</TableHead>
+   887→   887→                        <TableHead>Rôle</TableHead>
+   888→   888→                        <TableHead>Téléphone</TableHead>
+   889→   889→                        <TableHead>Statut</TableHead>
+   890→   890→                      </TableRow>
+   891→   891→                    </TableHeader>
+   892→   892→                    <TableBody>
+   893→   893→                      {tenant.users.map((user) => (
+   894→   894→                        <TableRow key={user.id}>
+   895→   895→                          <TableCell className="font-medium">
+   896→   896→                            {user.name}
+   897→   897→                          </TableCell>
+   898→   898→                          <TableCell className="text-sm">
+   899→   899→                            {user.email}
+   900→   900→                          </TableCell>
+   901→   901→                          <TableCell>
+   902→   902→                            <Badge
+   903→   903→                              className={roleBadgeColors[user.role] ?? ""}
+   904→   904→                            >
+   905→   905→                              {user.role}
+   906→   906→                            </Badge>
+   907→   907→                          </TableCell>
+   908→   908→                          <TableCell className="text-sm">
+   909→   909→                            {user.phone || "—"}
+   910→   910→                          </TableCell>
+   911→   911→                          <TableCell>
+   912→   912→                            <Badge
+   913→   913→                              variant={
+   914→   914→                                user.isActive ? "default" : "secondary"
+   915→   915→                              }
+   916→   916→                            >
+   917→   917→                              {user.isActive ? "Actif" : "Inactif"}
+   918→   918→                            </Badge>
+   919→   919→                          </TableCell>
+   920→   920→                        </TableRow>
+   921→   921→                      ))}
+   922→   922→                    </TableBody>
+   923→   923→                  </Table>
+   924→   924→                </div>
+   925→   925→              )}
+   926→   926→            </CardContent>
+   927→   927→          </Card>
+   928→   928→        </TabsContent>
+   929→   929→
+   930→   930→        {/* ============ TAB 3: Bus ============ */}
+   931→   931→        <TabsContent value="buses" className="mt-4">
+   932→   932→          <Card>
+   933→   933→            <CardHeader>
+   934→   934→              <CardTitle className="text-base flex items-center gap-2">
+   935→   935→                <BusIcon className="h-5 w-5 text-blue-600" />
+   936→   936→                Bus ({tenant.buses.length})
+   937→   937→                {tenant.buses.length > 0 && (
+   938→   938→                  <Badge variant="secondary" className="ml-2 text-xs">
+   939→   939→                    {tenant.buses.filter((b) => b.isActive).length} actifs
+   940→   940→                  </Badge>
+   941→   941→                )}
+   942→   942→              </CardTitle>
+   943→   943→            </CardHeader>
+   944→   944→            <CardContent className="p-0">
+   945→   945→              {tenant.buses.length === 0 ? (
+   946→   946→                <div className="py-12 text-center">
+   947→   947→                  <BusIcon className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+   948→   948→                  <p className="text-sm text-muted-foreground">
+   949→   949→                    Aucun bus pour cette compagnie
+   950→   950→                  </p>
+   951→   951→                </div>
+   952→   952→              ) : (
+   953→   953→                <div className="max-h-96 overflow-y-auto">
+   954→   954→                  <Table>
+   955→   955→                    <TableHeader>
+   956→   956→                      <TableRow>
+   957→   957→                        <TableHead>Numéro</TableHead>
+   958→   958→                        <TableHead>Capacité</TableHead>
+   959→   959→                        <TableHead>Statut</TableHead>
+   960→   960→                      </TableRow>
+   961→   961→                    </TableHeader>
+   962→   962→                    <TableBody>
+   963→   963→                      {tenant.buses.map((bus) => (
+   964→   964→                        <TableRow key={bus.id}>
+   965→   965→                          <TableCell className="font-medium font-mono">
+   966→   966→                            {bus.number}
+   967→   967→                          </TableCell>
+   968→   968→                          <TableCell>{bus.capacity} places</TableCell>
+   969→   969→                          <TableCell>
+   970→   970→                            <Badge
+   971→   971→                              variant={
+   972→   972→                                bus.isActive ? "default" : "secondary"
+   973→   973→                              }
+   974→   974→                            >
+   975→   975→                              {bus.isActive ? "Actif" : "Inactif"}
+   976→   976→                            </Badge>
+   977→   977→                          </TableCell>
+   978→   978→                        </TableRow>
+   979→   979→                      ))}
+   980→   980→                    </TableBody>
+   981→   981→                  </Table>
+   982→   982→                </div>
+   983→   983→              )}
+   984→   984→            </CardContent>
+   985→   985→          </Card>
+   986→   986→        </TabsContent>
+   987→   987→
+   988→   988→        {/* ============ TAB 4: Trajets ============ */}
+   989→   989→        <TabsContent value="trajets" className="mt-4">
+   990→   990→          <Card>
+   991→   991→            <CardHeader>
+   992→   992→              <CardTitle className="text-base flex items-center gap-2">
+   993→   993→                <Route className="h-5 w-5 text-emerald-600" />
+   994→   994→                Trajets ({tenant.trajets.length})
+   995→   995→              </CardTitle>
+   996→   996→            </CardHeader>
+   997→   997→            <CardContent className="p-0">
+   998→   998→              {tenant.trajets.length === 0 ? (
+   999→   999→                <div className="py-12 text-center">
+  1000→  1000→                  <Route className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+  1001→  1001→                  <p className="text-sm text-muted-foreground">
+  1002→  1002→                    Aucun trajet pour cette compagnie
+  1003→  1003→                  </p>
+  1004→  1004→                </div>
+  1005→  1005→              ) : (
+  1006→  1006→                <div className="max-h-96 overflow-y-auto">
+  1007→  1007→                  <Table>
+  1008→  1008→                    <TableHeader>
+  1009→  1009→                      <TableRow>
+  1010→  1010→                        <TableHead>Origine</TableHead>
+  1011→  1011→                        <TableHead>Destination</TableHead>
+  1012→  1012→                        <TableHead>Date</TableHead>
+  1013→  1013→                        <TableHead>Heure</TableHead>
+  1014→  1014→                        <TableHead>Prix</TableHead>
+  1015→  1015→                        <TableHead>Statut</TableHead>
+  1016→  1016→                      </TableRow>
+  1017→  1017→                    </TableHeader>
+  1018→  1018→                    <TableBody>
+  1019→  1019→                      {tenant.trajets.map((trajet) => {
+  1020→  1020→                        const tsc =
+  1021→  1021→                          trajetStatusConfig[trajet.status] ??
+  1022→  1022→                          trajetStatusConfig.scheduled;
+  1023→  1023→                        return (
+  1024→  1024→                          <TableRow key={trajet.id}>
+  1025→  1025→                            <TableCell className="font-medium">
+  1026→  1026→                              {trajet.origin}
+  1027→  1027→                            </TableCell>
+  1028→  1028→                            <TableCell>{trajet.destination}</TableCell>
+  1029→  1029→                            <TableCell className="text-sm">
+  1030→  1030→                              {formatDate(trajet.date)}
+  1031→  1031→                            </TableCell>
+  1032→  1032→                            <TableCell className="text-sm">
+  1033→  1033→                              {trajet.time}
+  1034→  1034→                            </TableCell>
+  1035→  1035→                            <TableCell className="font-medium">
+  1036→  1036→                              {formatFCFA(trajet.price)}
+  1037→  1037→                            </TableCell>
+  1038→  1038→                            <TableCell>
+  1039→  1039→                              <Badge className={tsc.className}>
+  1040→  1040→                                {tsc.label}
+  1041→  1041→                              </Badge>
+  1042→  1042→                            </TableCell>
+  1043→  1043→                          </TableRow>
+  1044→  1044→                        );
+  1045→  1045→                      })}
+  1046→  1046→                    </TableBody>
+  1047→  1047→                  </Table>
+  1048→  1048→                </div>
+  1049→  1049→              )}
+  1050→  1050→            </CardContent>
+  1051→  1051→          </Card>
+  1052→  1052→        </TabsContent>
+  1053→  1053→
+  1054→  1054→        {/* ============ TAB 5: Factures ============ */}
+  1055→  1055→        <TabsContent value="invoices" className="mt-4">
+  1056→  1056→          <Card>
+  1057→  1057→            <CardHeader>
+  1058→  1058→              <CardTitle className="text-base flex items-center gap-2">
+  1059→  1059→                <FileText className="h-5 w-5 text-amber-600" />
+  1060→  1060→                Factures ({tenant.invoices.length})
+  1061→  1061→              </CardTitle>
+  1062→  1062→            </CardHeader>
+  1063→  1063→            <CardContent className="p-0">
+  1064→  1064→              {tenant.invoices.length === 0 ? (
+  1065→  1065→                <div className="py-12 text-center">
+  1066→  1066→                  <FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+  1067→  1067→                  <p className="text-sm text-muted-foreground">
+  1068→  1068→                    Aucune facture pour cette compagnie
+  1069→  1069→                  </p>
+  1070→  1070→                </div>
+  1071→  1071→              ) : (
+  1072→  1072→                <div className="max-h-96 overflow-y-auto">
+  1073→  1073→                  <Table>
+  1074→  1074→                    <TableHeader>
+  1075→  1075→                      <TableRow>
+  1076→  1076→                        <TableHead>N° Facture</TableHead>
+  1077→  1077→                        <TableHead>Date</TableHead>
+  1078→  1078→                        <TableHead>Montant</TableHead>
+  1079→  1079→                        <TableHead>Statut</TableHead>
+  1080→  1080→                        <TableHead>Échéance</TableHead>
+  1081→  1081→                        <TableHead>Payée le</TableHead>
+  1082→  1082→                        <TableHead className="text-right">Actions</TableHead>
+  1083→  1083→                      </TableRow>
+  1084→  1084→                    </TableHeader>
+  1085→  1085→                    <TableBody>
+  1086→  1086→                      {tenant.invoices.map((inv) => {
+  1087→  1087→                        const invCfg = getInvoiceStatusConfig(inv.status);
+  1088→  1088→                        return (
+  1089→  1089→                          <TableRow key={inv.id}>
+  1090→  1090→                            <TableCell className="font-mono text-sm">
+  1091→  1091→                              {inv.invoiceNumber || "—"}
+  1092→  1092→                            </TableCell>
+  1093→  1093→                            <TableCell className="text-sm">
+  1094→  1094→                              {formatDate(inv.invoiceDate)}
+  1095→  1095→                            </TableCell>
+  1096→  1096→                            <TableCell className="font-medium">
+  1097→  1097→                              {formatFCFA(inv.total)}
+  1098→  1098→                            </TableCell>
+  1099→  1099→                            <TableCell>
+  1100→  1100→                              <Badge className={invCfg.className}>
+  1101→  1101→                                {invCfg.label}
+  1102→  1102→                              </Badge>
+  1103→  1103→                            </TableCell>
+  1104→  1104→                            <TableCell className="text-sm">
+  1105→  1105→                              {formatDate(inv.dueDate)}
+  1106→  1106→                            </TableCell>
+  1107→  1107→                            <TableCell className="text-sm">
+  1108→  1108→                              {formatDate(inv.paidAt)}
+  1109→  1109→                            </TableCell>
+  1110→  1110→                            <TableCell className="text-right">
+  1111→  1111→                              {inv.status !== "paid" && (
+  1112→  1112→                                <Button
+  1113→  1113→                                  variant="outline"
+  1114→  1114→                                  size="sm"
+  1115→  1115→                                  className="text-emerald-600 hover:text-emerald-700 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-900/20"
+  1116→  1116→                                  onClick={() => handleMarkPaid(inv.id)}
+  1117→  1117→                                >
+  1118→  1118→                                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+  1119→  1119→                                  Marquer payée
+  1120→  1120→                                </Button>
+  1121→  1121→                              )}
+  1122→  1122→                            </TableCell>
+  1123→  1123→                          </TableRow>
+  1124→  1124→                        );
+  1125→  1125→                      })}
+  1126→  1126→                    </TableBody>
+  1127→  1127→                  </Table>
+  1128→  1128→                </div>
+  1129→  1129→              )}
+  1130→  1130→            </CardContent>
+  1131→  1131→          </Card>
+  1132→  1132→        </TabsContent>
+  1133→  1133→      </Tabs>
+  1134→  1134→
+  1135→  1135→      {/* ===================== DIALOGS =================== */}
+  1136→  1136→
+  1137→  1137→      {/* Impersonate confirmation */}
+  1138→  1138→      <Dialog open={impersonateOpen} onOpenChange={setImpersonateOpen}>
+  1139→  1139→        <DialogContent>
+  1140→  1140→          <DialogHeader>
+  1141→  1141→            <DialogTitle>Confirmer l&apos;impersonation</DialogTitle>
+  1142→  1142→          </DialogHeader>
+  1143→  1143→          {impersonateUser && (
+  1144→  1144→            <div className="text-sm space-y-2">
+  1145→  1145→              <p>Vous allez vous connecter en tant que :</p>
+  1146→  1146→              <div className="rounded-lg border p-3 bg-muted/50">
+  1147→  1147→                <p className="font-medium">{impersonateUser.name}</p>
+  1148→  1148→                <p className="text-muted-foreground text-xs">
+  1149→  1149→                  {impersonateUser.email}
+  1150→  1150→                </p>
+  1151→  1151→                <Badge
+  1152→  1152→                  variant="outline"
+  1153→  1153→                  className="mt-1 text-[10px] capitalize"
+  1154→  1154→                >
+  1155→  1155→                  {impersonateUser.role}
+  1156→  1156→                </Badge>
+  1157→  1157→              </div>
+  1158→  1158→              <p className="text-amber-600 dark:text-amber-400 text-xs flex items-center gap-1">
+  1159→  1159→                <AlertTriangle className="h-3 w-3" />
+  1160→  1160→                Vous pourrez revenir à votre compte SuperAdmin en vous
+  1161→  1161→                déconnectant.
+  1162→  1162→              </p>
+  1163→  1163→            </div>
+  1164→  1164→          )}
+  1165→  1165→          <DialogFooter>
+  1166→  1166→            <Button
+  1167→  1167→              variant="outline"
+  1168→  1168→              onClick={() => setImpersonateOpen(false)}
+  1169→  1169→            >
+  1170→  1170→              Annuler
+  1171→  1171→            </Button>
+  1172→  1172→            <Button
+  1173→  1173→              onClick={handleImpersonate}
+  1174→  1174→              disabled={impersonateLoading}
+  1175→  1175→            >
+  1176→  1176→              {impersonateLoading ? "Connexion..." : "Se connecter"}
+  1177→  1177→            </Button>
+  1178→  1178→          </DialogFooter>
+  1179→  1179→        </DialogContent>
+  1180→  1180→      </Dialog>
+  1181→  1181→
+  1182→  1182→      {/* Suspend dialog */}
+  1183→  1183→      <Dialog open={suspendOpen} onOpenChange={setSuspendOpen}>
+  1184→  1184→        <DialogContent>
+  1185→  1185→          <DialogHeader>
+  1186→  1186→            <DialogTitle>Suspendre la compagnie</DialogTitle>
+  1187→  1187→          </DialogHeader>
+  1188→  1188→          <div className="space-y-4">
+  1189→  1189→            <p className="text-sm text-muted-foreground">
+  1190→  1190→              Saisissez la raison de la suspension de{" "}
+  1191→  1191→              <span className="font-semibold text-foreground">
+  1192→  1192→                {tenant.name}
+  1193→  1193→              </span>
+  1194→  1194→              .
+  1195→  1195→            </p>
+  1196→  1196→            <div className="space-y-2">
+  1197→  1197→              <Label htmlFor="suspend-reason">Raison</Label>
+  1198→  1198→              <Input
+  1199→  1199→                id="suspend-reason"
+  1200→  1200→                placeholder="Ex: Paiement en retard, violation des CGU..."
+  1201→  1201→                value={suspendReason}
+  1202→  1202→                onChange={(e) => setSuspendReason(e.target.value)}
+  1203→  1203→              />
+  1204→  1204→            </div>
+  1205→  1205→          </div>
+  1206→  1206→          <DialogFooter>
+  1207→  1207→            <Button
+  1208→  1208→              variant="outline"
+  1209→  1209→              onClick={() => {
+  1210→  1210→                setSuspendOpen(false);
+  1211→  1211→                setSuspendReason("");
+  1212→  1212→              }}
+  1213→  1213→            >
+  1214→  1214→              Annuler
+  1215→  1215→            </Button>
+  1216→  1216→            <Button
+  1217→  1217→              variant="destructive"
+  1218→  1218→              onClick={handleSuspend}
+  1219→  1219→              disabled={suspendLoading || !suspendReason.trim()}
+  1220→  1220→            >
+  1221→  1221→              {suspendLoading ? "Suspension..." : "Suspendre"}
+  1222→  1222→            </Button>
+  1223→  1223→          </DialogFooter>
+  1224→  1224→        </DialogContent>
+  1225→  1225→      </Dialog>
+  1226→  1226→
+  1227→  1227→      {/* Delete confirmation */}
+  1228→  1228→      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+  1229→  1229→        <AlertDialogContent>
+  1230→  1230→          <AlertDialogHeader>
+  1231→  1231→            <AlertDialogTitle>Supprimer la compagnie</AlertDialogTitle>
+  1232→  1232→            <AlertDialogDescription>
+  1233→  1233→              Cette action est irréversible. Toutes les données de{" "}
+  1234→  1234→              <span className="font-semibold text-foreground">
+  1235→  1235→                {tenant.name}
+  1236→  1236→              </span>{" "}
+  1237→  1237→              (utilisateurs, bus, factures, trajets) seront définitivement
+  1238→  1238→              supprimées.
+  1239→  1239→            </AlertDialogDescription>
+  1240→  1240→          </AlertDialogHeader>
+  1241→  1241→          <AlertDialogFooter>
+  1242→  1242→            <AlertDialogCancel>Annuler</AlertDialogCancel>
+  1243→  1243→            <AlertDialogAction
+  1244→  1244→              onClick={handleDelete}
+  1245→  1245→              disabled={deleteLoading}
+  1246→  1246→              className="bg-rose-600 hover:bg-rose-700 text-white"
+  1247→  1247→            >
+  1248→  1248→              {deleteLoading
+  1249→  1249→                ? "Suppression..."
+  1250→  1250→                : "Supprimer définitivement"}
+  1251→  1251→            </AlertDialogAction>
+  1252→  1252→          </AlertDialogFooter>
+  1253→  1253→        </AlertDialogContent>
+  1254→  1254→      </AlertDialog>
+  1255→  1255→    </div>
+  1256→  1256→  );
+  1257→  1257→}

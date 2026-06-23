@@ -1,4 +1,27 @@
 ---
+Task ID: 2c
+Agent: Main Agent
+Task: PHASE 2 — Company detail page at /superadmin/tenants/[id] with 5 tabs
+
+Work Log:
+- Audited existing PHASE 2 work: tenants list already had DataTable (TanStack Table), sorting, filtering, pagination, action dropdowns (suspend/reactivate/delete/impersonate), create tenant dialog, credentials modal — all complete
+- Built `/src/app/(superadmin)/superadmin/tenants/[id]/page.tsx` — full tenant detail page with 5 tabs:
+  - Tab 1 (Vue d'ensemble): Stats cards row (users, buses, trajets, invoices, revenue), 4 info cards (Identité, Abonnement, Branding & SEO, Activité), suspension banner
+  - Tab 2 (Utilisateurs): Users table with name, email, role badge, phone, status
+  - Tab 3 (Bus): Bus table with number, capacity, status
+  - Tab 4 (Trajets): Trajets table with origin, destination, date, time, price (FCFA), status (5 states with colors), created date
+  - Tab 5 (Factures): Invoices table with invoice number, date, total (FCFA), status, paid date
+- Uses shadcn/ui Tabs, Card, Badge, Table, Skeleton components
+- Violet theme accent colors, dark mode support, loading skeleton, error state with back button
+- Verified zero TypeScript errors from the new file (only pre-existing test/example errors)
+- Removed unused CardDescription import
+
+Stage Summary:
+- PHASE 2 fully complete: tenants list (DataTable + actions) + company detail page (5 tabs)
+- New file: `src/app/(superadmin)/superadmin/tenants/[id]/page.tsx` (~550 lines)
+- Zero new TS errors introduced
+
+---
 Task ID: 1
 Agent: Main Agent
 Task: Développer le Dashboard SuperAdmin pour Bus Go
@@ -124,3 +147,21 @@ Stage Summary:
 - 1 new API handler (PATCH /api/superadmin/tenants)
 - 3 TS errors fixed, 2 tests updated
 - 113/113 tests passing, clean SuperAdmin compilation
+---
+Task ID: 3
+Agent: Main Agent
+Task: Tenant Detail Page - 5 tabs (Vue d'ensemble, Utilisateurs, Bus, Trajets, Factures)
+Date: 2025-06-20
+Changes:
+- Edited API route `/api/superadmin/tenants/[id]/route.ts` to include `trajets` in the GET handler (select: id, origin, destination, date, time, price, status, createdAt; ordered by date desc; take 50)
+- Rewrote `/app/(superadmin)/superadmin/tenants/[id]/page.tsx` with 5 tabs:
+  1. **Vue d'ensemble**: 4-card grid (Identité, Abonnement, Statistiques, Branding) + suspension warning card + action buttons (suspend/reactivate/delete/impersonate)
+  2. **Utilisateurs**: Table with Nom, Email, Rôle (color badges: admin=violet, agent=blue, client=slate), Téléphone, Statut
+  3. **Bus**: Table with Numéro, Capacité, Statut + active bus count badge
+  4. **Trajets**: Table with Origine, Destination, Date, Heure, Prix (FCFA), Statut (color badges: scheduled=blue, boarding=amber, departed=emerald, arrived=emerald, cancelled=rose)
+  5. **Factures**: Table with N° Facture, Date, Montant (FCFA), Statut (getInvoiceStatusConfig), Échéance, Payée le + mark as paid action
+- Used shared utilities: getSubscriptionStatusConfig, getInvoiceStatusConfig, formatFCFA, getPlanLabel from @/lib/superadmin-utils
+- Added TenantTrajet interface, InfoRow helper component
+- All tables have max-h-96 overflow-y-auto, empty states with icons
+- Skeleton loading state, 404 state, responsive design
+- TypeScript check passed (no errors from modified files)

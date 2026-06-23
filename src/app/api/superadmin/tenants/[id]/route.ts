@@ -23,6 +23,11 @@ export async function GET(
         select: { id: true, name: true, email: true, role: true, isActive: true, phone: true },
       },
       buses: { select: { id: true, number: true, capacity: true, isActive: true } },
+      trajets: {
+        select: { id: true, origin: true, destination: true, date: true, time: true, price: true, status: true, createdAt: true },
+        orderBy: { date: "desc" },
+        take: 50,
+      },
       invoices: {
         orderBy: { createdAt: "desc" },
         take: 20,

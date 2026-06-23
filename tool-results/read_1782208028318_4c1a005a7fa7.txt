@@ -1,0 +1,1111 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+     4→     4→import { useRouter } from "next/navigation";
+     5→     5→import {
+     6→     6→  useReactTable,
+     7→     7→  getCoreRowModel,
+     8→     8→  getSortedRowModel,
+     9→     9→  getFilteredRowModel,
+    10→    10→  getPaginationRowModel,
+    11→    11→  flexRender,
+    12→    12→  type ColumnDef,
+    13→    13→  type SortingState,
+    14→    14→  type ColumnFiltersState,
+    15→    15→} from "@tanstack/react-table";
+    16→    16→import {
+    17→    17→  Table,
+    18→    18→  TableBody,
+    19→    19→  TableCell,
+    20→    20→  TableHead,
+    21→    21→  TableHeader,
+    22→    22→  TableRow,
+    23→    23→} from "@/components/ui/table";
+    24→    24→import { Button } from "@/components/ui/button";
+    25→    25→import { Badge } from "@/components/ui/badge";
+    26→    26→import { Input } from "@/components/ui/input";
+    27→    27→import { Skeleton } from "@/components/ui/skeleton";
+    28→    28→import { Label } from "@/components/ui/label";
+    29→    29→import { Textarea } from "@/components/ui/textarea";
+    30→    30→import {
+    31→    31→  Dialog,
+    32→    32→  DialogContent,
+    33→    33→  DialogHeader,
+    34→    34→  DialogTitle,
+    35→    35→  DialogFooter,
+    36→    36→} from "@/components/ui/dialog";
+    37→    37→import {
+    38→    38→  Select,
+    39→    39→  SelectContent,
+    40→    40→  SelectItem,
+    41→    41→  SelectTrigger,
+    42→    42→  SelectValue,
+    43→    43→} from "@/components/ui/select";
+    44→    44→import {
+    45→    45→  AlertDialog,
+    46→    46→  AlertDialogAction,
+    47→    47→  AlertDialogCancel,
+    48→    48→  AlertDialogContent,
+    49→    49→  AlertDialogDescription,
+    50→    50→  AlertDialogFooter,
+    51→    51→  AlertDialogHeader,
+    52→    52→  AlertDialogTitle,
+    53→    53→} from "@/components/ui/alert-dialog";
+    54→    54→import {
+    55→    55→  DropdownMenu,
+    56→    56→  DropdownMenuContent,
+    57→    57→  DropdownMenuItem,
+    58→    58→  DropdownMenuSeparator,
+    59→    59→  DropdownMenuTrigger,
+    60→    60→} from "@/components/ui/dropdown-menu";
+    61→    61→import {
+    62→    62→  Pagination,
+    63→    63→  PaginationContent,
+    64→    64→  PaginationItem,
+    65→    65→  PaginationLink,
+    66→    66→  PaginationNext,
+    67→    67→  PaginationPrevious,
+    68→    68→} from "@/components/ui/pagination";
+    69→    69→import {
+    70→    70→  Building2,
+    71→    71→  Search,
+    72→    72→  Eye,
+    73→    73→  CheckCircle2,
+    74→    74→  AlertTriangle,
+    75→    75→  Plus,
+    76→    76→  MoreHorizontal,
+    77→    77→  ArrowUpDown,
+    78→    78→  ArrowUp,
+    79→    79→  ArrowDown,
+    80→    80→  Trash2,
+    81→    81→  ShieldOff,
+    82→    82→  ShieldCheck,
+    83→    83→  UserSwitch,
+    84→    84→} from "lucide-react";
+    85→    85→import { toast } from "sonner";
+    86→    86→
+    87→    87→/* ─── Types ─── */
+    88→    88→
+    89→    89→interface Tenant {
+    90→    90→  id: string;
+    91→    91→  name: string;
+    92→    92→  slug: string;
+    93→    93→  phone: string | null;
+    94→    94→  email: string | null;
+    95→    95→  plan: string;
+    96→    96→  isActive: boolean;
+    97→    97→  isSuspended: boolean;
+    98→    98→  subscriptionStatus: string;
+    99→    99→  createdAt: string;
+   100→   100→  _count: { users: number; buses: number; trajets: number; invoices: number };
+   101→   101→  subscriptions: {
+   102→   102→    id: string;
+   103→   103→    status: string;
+   104→   104→    plan: string;
+   105→   105→    totalAmount: number;
+   106→   106→    busCount: number;
+   107→   107→    endDate: string;
+   108→   108→  }[];
+   109→   109→}
+   110→   110→
+   111→   111→/* ─── Constants ─── */
+   112→   112→
+   113→   113→const PAGE_SIZE = 10;
+   114→   114→
+   115→   115→const planBadgeCls: Record<string, string> = {
+   116→   116→  starter:
+   117→   117→    "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+   118→   118→  pro: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
+   119→   119→  enterprise:
+   120→   120→    "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+   121→   121→};
+   122→   122→
+   123→   123→const statusMeta: Record<
+   124→   124→  string,
+   125→   125→  { label: string; cls: string }
+   126→   126→> = {
+   127→   127→  active: {
+   128→   128→    label: "Actif",
+   129→   129→    cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
+   130→   130→  },
+   131→   131→  suspended: {
+   132→   132→    label: "Suspendu",
+   133→   133→    cls: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+   134→   134→  },
+   135→   135→  inactive: {
+   136→   136→    label: "Inactif",
+   137→   137→    cls: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+   138→   138→  },
+   139→   139→};
+   140→   140→
+   141→   141→function tenantStatus(t: Tenant): string {
+   142→   142→  if (t.isSuspended) return "suspended";
+   143→   143→  if (t.isActive) return "active";
+   144→   144→  return "inactive";
+   145→   145→}
+   146→   146→
+   147→   147→/* ─── Sort Header Helper ─── */
+   148→   148→
+   149→   149→function SortHeader({
+   150→   150→  column,
+   151→   151→  children,
+   152→   152→}: {
+   153→   153→  column: { toggleSorting: (desc: boolean) => void; getIsSorted: () => false | "asc" | "desc" };
+   154→   154→  children: React.ReactNode;
+   155→   155→}) {
+   156→   156→  const sorted = column.getIsSorted();
+   157→   157→  return (
+   158→   158→    <Button
+   159→   159→      variant="ghost"
+   160→   160→      size="sm"
+   161→   161→      className="-ml-3 h-8 text-xs font-medium text-muted-foreground hover:text-foreground"
+   162→   162→      onClick={() => column.toggleSorting(sorted === "asc")}
+   163→   163→    >
+   164→   164→      {children}
+   165→   165→      {sorted === "asc" ? (
+   166→   166→        <ArrowUp className="ml-1 h-3.5 w-3.5" />
+   167→   167→      ) : sorted === "desc" ? (
+   168→   168→        <ArrowDown className="ml-1 h-3.5 w-3.5" />
+   169→   169→      ) : (
+   170→   170→        <ArrowUpDown className="ml-1 h-3.5 w-3.5 opacity-50" />
+   171→   171→      )}
+   172→   172→    </Button>
+   173→   173→  );
+   174→   174→}
+   175→   175→
+   176→   176→/* ─── Component ─── */
+   177→   177→
+   178→   178→export default function TenantsPage() {
+   179→   179→  const router = useRouter();
+   180→   180→
+   181→   181→  /* data */
+   182→   182→  const [tenants, setTenants] = useState<Tenant[]>([]);
+   183→   183→  const [loading, setLoading] = useState(true);
+   184→   184→
+   185→   185→  /* table state */
+   186→   186→  const [sorting, setSorting] = useState<SortingState>([]);
+   187→   187→  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+   188→   188→  const [globalFilter, setGlobalFilter] = useState("");
+   189→   189→  const [totalTenants, setTotalTenants] = useState(0);
+   190→   190→
+   191→   191→  /* create tenant */
+   192→   192→  const [createOpen, setCreateOpen] = useState(false);
+   193→   193→  const [createLoading, setCreateLoading] = useState(false);
+   194→   194→  const [createForm, setCreateForm] = useState({
+   195→   195→    name: "",
+   196→   196→    slug: "",
+   197→   197→    adminName: "",
+   198→   198→    adminEmail: "",
+   199→   199→    adminPhone: "",
+   200→   200→    plan: "starter" as string,
+   201→   201→    country: "SN",
+   202→   202→  });
+   203→   203→  const slugManuallyEdited = useRef(false);
+   204→   204→
+   205→   205→  /* credentials dialog */
+   206→   206→  const [credentialsOpen, setCredentialsOpen] = useState(false);
+   207→   207→  const [credentials, setCredentials] = useState<{
+   208→   208→    email: string;
+   209→   209→    password: string;
+   210→   210→  } | null>(null);
+   211→   211→
+   212→   212→  /* suspend dialog */
+   213→   213→  const [suspendOpen, setSuspendOpen] = useState(false);
+   214→   214→  const [suspendTarget, setSuspendTarget] = useState<Tenant | null>(null);
+   215→   215→  const [suspendReason, setSuspendReason] = useState("");
+   216→   216→  const [suspendLoading, setSuspendLoading] = useState(false);
+   217→   217→
+   218→   218→  /* delete dialog */
+   219→   219→  const [deleteOpen, setDeleteOpen] = useState(false);
+   220→   220→  const [deleteTarget, setDeleteTarget] = useState<Tenant | null>(null);
+   221→   221→  const [deleteLoading, setDeleteLoading] = useState(false);
+   222→   222→
+   223→   223→  /* impersonate */
+   224→   224→  const [impersonateLoading, setImpersonateLoading] = useState<string | null>(null);
+   225→   225→
+   226→   226→  /* ─── Fetch ─── */
+   227→   227→
+   228→   228→  const fetchTenants = useCallback(async () => {
+   229→   229→    setLoading(true);
+   230→   230→    try {
+   231→   231→      const res = await fetch("/api/superadmin/tenants?limit=9999");
+   232→   232→      const data = await res.json();
+   233→   233→      if (Array.isArray(data)) {
+   234→   234→        setTenants(data);
+   235→   235→        setTotalTenants(data.length);
+   236→   236→      } else if (data.tenants) {
+   237→   237→        setTenants(data.tenants);
+   238→   238→        setTotalTenants(data.total ?? data.tenants.length);
+   239→   239→      }
+   240→   240→    } finally {
+   241→   241→      setLoading(false);
+   242→   242→    }
+   243→   243→  }, []);
+   244→   244→
+   245→   245→  useEffect(() => {
+   246→   246→    fetchTenants();
+   247→   247→  }, [fetchTenants]);
+   248→   248→
+   249→   249→  /* ─── Actions ─── */
+   250→   250→
+   251→   251→  const openSuspendDialog = useCallback((tenant: Tenant) => {
+   252→   252→    setSuspendTarget(tenant);
+   253→   253→    setSuspendReason("");
+   254→   254→    setSuspendOpen(true);
+   255→   255→  }, []);
+   256→   256→
+   257→   257→  const handleSuspend = useCallback(async () => {
+   258→   258→    if (!suspendTarget || !suspendReason.trim()) return;
+   259→   259→    setSuspendLoading(true);
+   260→   260→    try {
+   261→   261→      const res = await fetch(`/api/superadmin/tenants/${suspendTarget.id}/suspend`, {
+   262→   262→        method: "POST",
+   263→   263→        headers: { "Content-Type": "application/json" },
+   264→   264→        body: JSON.stringify({ reason: suspendReason.trim() }),
+   265→   265→      });
+   266→   266→      if (!res.ok) {
+   267→   267→        const err = await res.json();
+   268→   268→        toast.error(err.error || "Erreur lors de la suspension");
+   269→   269→        return;
+   270→   270→      }
+   271→   271→      toast.success(`${suspendTarget.name} suspendue`);
+   272→   272→      setSuspendOpen(false);
+   273→   273→      fetchTenants();
+   274→   274→    } catch {
+   275→   275→      toast.error("Erreur lors de la suspension");
+   276→   276→    } finally {
+   277→   277→      setSuspendLoading(false);
+   278→   278→    }
+   279→   279→  }, [suspendTarget, suspendReason, fetchTenants]);
+   280→   280→
+   281→   281→  const handleReactivate = useCallback(
+   282→   282→    async (tenant: Tenant) => {
+   283→   283→      try {
+   284→   284→        const res = await fetch(
+   285→   285→          `/api/superadmin/tenants/${tenant.id}/reactivate`,
+   286→   286→          { method: "POST" },
+   287→   287→        );
+   288→   288→        if (!res.ok) {
+   289→   289→          const err = await res.json();
+   290→   290→          toast.error(err.error || "Erreur lors de la réactivation");
+   291→   291→          return;
+   292→   292→        }
+   293→   293→        toast.success(`${tenant.name} réactivée`);
+   294→   294→        fetchTenants();
+   295→   295→      } catch {
+   296→   296→        toast.error("Erreur lors de la réactivation");
+   297→   297→      }
+   298→   298→    },
+   299→   299→    [fetchTenants],
+   300→   300→  );
+   301→   301→
+   302→   302→  const openDeleteDialog = useCallback((tenant: Tenant) => {
+   303→   303→    setDeleteTarget(tenant);
+   304→   304→    setDeleteOpen(true);
+   305→   305→  }, []);
+   306→   306→
+   307→   307→  const handleDelete = useCallback(async () => {
+   308→   308→    if (!deleteTarget) return;
+   309→   309→    setDeleteLoading(true);
+   310→   310→    try {
+   311→   311→      const res = await fetch(
+   312→   312→        `/api/superadmin/tenants/${deleteTarget.id}?confirm=true`,
+   313→   313→        { method: "DELETE" },
+   314→   314→      );
+   315→   315→      if (!res.ok) {
+   316→   316→        const err = await res.json();
+   317→   317→        toast.error(err.error || "Erreur lors de la suppression");
+   318→   318→        return;
+   319→   319→      }
+   320→   320→      toast.success(`${deleteTarget.name} supprimée`);
+   321→   321→      setDeleteOpen(false);
+   322→   322→      fetchTenants();
+   323→   323→    } catch {
+   324→   324→      toast.error("Erreur lors de la suppression");
+   325→   325→    } finally {
+   326→   326→      setDeleteLoading(false);
+   327→   327→    }
+   328→   328→  }, [deleteTarget, fetchTenants]);
+   329→   329→
+   330→   330→  const handleImpersonate = useCallback(async (tenant: Tenant) => {
+   331→   331→    setImpersonateLoading(tenant.id);
+   332→   332→    try {
+   333→   333→      // First find the admin user of this tenant
+   334→   334→      const res = await fetch(`/api/superadmin/tenants/${tenant.id}`);
+   335→   335→      if (!res.ok) { toast.error("Erreur lors de la récupération"); return; }
+   336→   336→      const data = await res.json();
+   337→   337→      const admin = data.users?.find((u: { role: string }) => u.role === "admin");
+   338→   338→      if (!admin) { toast.error("Aucun administrateur trouvé pour cette entreprise"); return; }
+   339→   339→
+   340→   340→      const impRes = await fetch("/api/superadmin/impersonate", {
+   341→   341→        method: "POST",
+   342→   342→        headers: { "Content-Type": "application/json" },
+   343→   343→        body: JSON.stringify({ userId: admin.id }),
+   344→   344→      });
+   345→   345→      if (!impRes.ok) { const err = await impRes.json(); toast.error(err.error || "Erreur d'impersonation"); return; }
+   346→   346→      const impData = await impRes.json();
+   347→   347→
+   348→   348→      // Set the impersonated token in a cookie
+   349→   349→      document.cookie = `next-auth.session-token=${impData.token}; path=/; max-age=3600; samesite=lax`;
+   350→   350→      toast.success(`Connecté en tant que ${impData.user.name}`);
+   351→   351→
+   352→   352→      // Redirect to admin dashboard
+   353→   353→      setTimeout(() => { window.location.href = "/admin"; }, 500);
+   354→   354→    } catch {
+   355→   355→      toast.error("Erreur d'impersonation");
+   356→   356→    } finally {
+   357→   357→      setImpersonateLoading(null);
+   358→   358→    }
+   359→   359→  }, []);
+   360→   360→
+   361→   361→  /* ─── Columns ─── */
+   362→   362→
+   363→   363→  const columns = useMemo<ColumnDef<Tenant, unknown>[]>(
+   364→   364→    () => [
+   365→   365→      {
+   366→   366→        accessorKey: "name",
+   367→   367→        header: ({ column }) => <SortHeader column={column}>Entreprise</SortHeader>,
+   368→   368→        cell: ({ row }) => (
+   369→   369→          <div className="flex items-center gap-2.5 min-w-[180px]">
+   370→   370→            <div className="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+   371→   371→              <Building2 className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+   372→   372→            </div>
+   373→   373→            <div className="min-w-0">
+   374→   374→              <p className="font-semibold text-sm leading-tight truncate">
+   375→   375→                {row.original.name}
+   376→   376→              </p>
+   377→   377→              <Badge
+   378→   378→                variant="outline"
+   379→   379→                className="text-[10px] mt-0.5 font-normal"
+   380→   380→              >
+   381→   381→                @{row.original.slug}
+   382→   382→              </Badge>
+   383→   383→            </div>
+   384→   384→          </div>
+   385→   385→        ),
+   386→   386→        filterFn: (row, _id, value: string) => {
+   387→   387→          if (!value) return true;
+   388→   388→          const s = value.toLowerCase();
+   389→   389→          return (
+   390→   390→            row.original.name.toLowerCase().includes(s) ||
+   391→   391→            row.original.slug.toLowerCase().includes(s)
+   392→   392→          );
+   393→   393→        },
+   394→   394→      },
+   395→   395→      {
+   396→   396→        accessorKey: "plan",
+   397→   397→        header: ({ column }) => <SortHeader column={column}>Plan</SortHeader>,
+   398→   398→        cell: ({ row }) => {
+   399→   399→          const plan = row.original.plan;
+   400→   400→          return (
+   401→   401→            <Badge
+   402→   402→              variant="outline"
+   403→   403→              className={`${planBadgeCls[plan] ?? ""} capitalize text-xs`}
+   404→   404→            >
+   405→   405→              {plan}
+   406→   406→            </Badge>
+   407→   407→          );
+   408→   408→        },
+   409→   409→      },
+   410→   410→      {
+   411→   411→        id: "status",
+   412→   412→        header: ({ column }) => <SortHeader column={column}>Statut</SortHeader>,
+   413→   413→        accessorFn: (row) => tenantStatus(row),
+   414→   414→        filterFn: (row, _id, value: string) => {
+   415→   415→          if (!value) return true;
+   416→   416→          return tenantStatus(row.original) === value;
+   417→   417→        },
+   418→   418→        sortingFn: (rowA, rowB) => {
+   419→   419→          const order: Record<string, number> = {
+   420→   420→            suspended: 0,
+   421→   421→            inactive: 1,
+   422→   422→            active: 2,
+   423→   423→          };
+   424→   424→          return (
+   425→   425→            (order[tenantStatus(rowA.original)] ?? 0) -
+   426→   426→            (order[tenantStatus(rowB.original)] ?? 0)
+   427→   427→          );
+   428→   428→        },
+   429→   429→        cell: ({ row }) => {
+   430→   430→          const s = tenantStatus(row.original);
+   431→   431→          const meta = statusMeta[s];
+   432→   432→          return (
+   433→   433→            <Badge
+   434→   434→              variant="outline"
+   435→   435→              className={`${meta?.cls ?? ""} text-xs`}
+   436→   436→            >
+   437→   437→              {meta?.label ?? s}
+   438→   438→            </Badge>
+   439→   439→          );
+   440→   440→        },
+   441→   441→      },
+   442→   442→      {
+   443→   443→        accessorKey: "_count.buses",
+   444→   444→        header: ({ column }) => <SortHeader column={column}>Bus</SortHeader>,
+   445→   445→        cell: ({ row }) => (
+   446→   446→          <span className="text-sm font-medium tabular-nums">
+   447→   447→            {row.original._count.buses}
+   448→   448→          </span>
+   449→   449→        ),
+   450→   450→      },
+   451→   451→      {
+   452→   452→        accessorKey: "_count.users",
+   453→   453→        header: ({ column }) => (
+   454→   454→          <SortHeader column={column}>Utilisateurs</SortHeader>
+   455→   455→        ),
+   456→   456→        cell: ({ row }) => (
+   457→   457→          <span className="text-sm font-medium tabular-nums">
+   458→   458→            {row.original._count.users}
+   459→   459→          </span>
+   460→   460→        ),
+   461→   461→      },
+   462→   462→      {
+   463→   463→        id: "subscription",
+   464→   464→        header: () => (
+   465→   465→          <span className="text-xs font-medium text-muted-foreground">
+   466→   466→            Abonnement
+   467→   467→          </span>
+   468→   468→        ),
+   469→   469→        cell: ({ row }) => {
+   470→   470→          const sub = row.original.subscriptions[0];
+   471→   471→          if (!sub)
+   472→   472→            return (
+   473→   473→              <span className="text-sm text-muted-foreground">&mdash;</span>
+   474→   474→            );
+   475→   475→          return (
+   476→   476→            <div className="text-sm whitespace-nowrap">
+   477→   477→              <span className="font-medium">
+   478→   478→                {new Intl.NumberFormat("fr-FR").format(sub.totalAmount)} FCFA
+   479→   479→              </span>
+   480→   480→              <span className="text-muted-foreground"> &middot; {sub.busCount} bus</span>
+   481→   481→            </div>
+   482→   482→          );
+   483→   483→        },
+   484→   484→      },
+   485→   485→      {
+   486→   486→        accessorKey: "createdAt",
+   487→   487→        header: ({ column }) => (
+   488→   488→          <SortHeader column={column}>Créé le</SortHeader>
+   489→   489→        ),
+   490→   490→        cell: ({ row }) => (
+   491→   491→          <span className="text-sm text-muted-foreground whitespace-nowrap">
+   492→   492→            {new Date(row.original.createdAt).toLocaleDateString("fr-FR", {
+   493→   493→              day: "2-digit",
+   494→   494→              month: "short",
+   495→   495→              year: "numeric",
+   496→   496→            })}
+   497→   497→          </span>
+   498→   498→        ),
+   499→   499→      },
+   500→   500→      {
+   501→   501→        id: "actions",
+   502→   502→        header: () => null,
+   503→   503→        size: 48,
+   504→   504→        cell: ({ row }) => {
+   505→   505→          const tenant = row.original;
+   506→   506→          const status = tenantStatus(tenant);
+   507→   507→          return (
+   508→   508→            <DropdownMenu>
+   509→   509→              <DropdownMenuTrigger asChild>
+   510→   510→                <Button variant="ghost" size="icon" className="h-8 w-8">
+   511→   511→                  <MoreHorizontal className="h-4 w-4" />
+   512→   512→                  <span className="sr-only">Actions</span>
+   513→   513→                </Button>
+   514→   514→              </DropdownMenuTrigger>
+   515→   515→              <DropdownMenuContent align="end" className="w-48">
+   516→   516→                <DropdownMenuItem
+   517→   517→                  onClick={() => router.push(`/superadmin/tenants/${tenant.id}`)}
+   518→   518→                >
+   519→   519→                  <Eye className="h-4 w-4" />
+   520→   520→                  Voir le détail
+   521→   521→                </DropdownMenuItem>
+   522→   522→                <DropdownMenuItem
+   523→   523→                  onClick={() => handleImpersonate(tenant)}
+   524→   524→                  disabled={impersonateLoading === tenant.id}
+   525→   525→                >
+   526→   526→                  <UserSwitch className="h-4 w-4" />
+   527→   527→                  {impersonateLoading === tenant.id ? "Connexion..." : "Usurper l'identité"}
+   528→   528→                </DropdownMenuItem>
+   529→   529→                <DropdownMenuSeparator />
+   530→   530→                {status === "suspended" ? (
+   531→   531→                  <DropdownMenuItem
+   532→   532→                    onClick={() => handleReactivate(tenant)}
+   533→   533→                  >
+   534→   534→                    <ShieldCheck className="h-4 w-4" />
+   535→   535→                    Réactiver
+   536→   536→                  </DropdownMenuItem>
+   537→   537→                ) : (
+   538→   538→                  <DropdownMenuItem
+   539→   539→                    onClick={() => openSuspendDialog(tenant)}
+   540→   540→                  >
+   541→   541→                    <ShieldOff className="h-4 w-4" />
+   542→   542→                    Suspendre
+   543→   543→                  </DropdownMenuItem>
+   544→   544→                )}
+   545→   545→                <DropdownMenuSeparator />
+   546→   546→                <DropdownMenuItem
+   547→   547→                  variant="destructive"
+   548→   548→                  onClick={() => openDeleteDialog(tenant)}
+   549→   549→                >
+   550→   550→                  <Trash2 className="h-4 w-4" />
+   551→   551→                  Supprimer
+   552→   552→                </DropdownMenuItem>
+   553→   553→              </DropdownMenuContent>
+   554→   554→            </DropdownMenu>
+   555→   555→          );
+   556→   556→        },
+   557→   557→      },
+   558→   558→    ],
+   559→   559→    [router, handleReactivate, openSuspendDialog, openDeleteDialog, handleImpersonate],
+   560→   560→  );
+   561→   561→
+   562→   562→  /* ─── Table ─── */
+   563→   563→
+   564→   564→  const table = useReactTable({
+   565→   565→    data: tenants,
+   566→   566→    columns,
+   567→   567→    state: {
+   568→   568→      sorting,
+   569→   569→      columnFilters,
+   570→   570→      globalFilter,
+   571→   571→    },
+   572→   572→    onSortingChange: setSorting,
+   573→   573→    onColumnFiltersChange: setColumnFilters,
+   574→   574→    onGlobalFilterChange: setGlobalFilter,
+   575→   575→    getCoreRowModel: getCoreRowModel(),
+   576→   576→    getSortedRowModel: getSortedRowModel(),
+   577→   577→    getFilteredRowModel: getFilteredRowModel(),
+   578→   578→    getPaginationRowModel: getPaginationRowModel(),
+   579→   579→    initialState: {
+   580→   580→      pagination: { pageSize: PAGE_SIZE },
+   581→   581→    },
+   582→   582→  });
+   583→   583→
+   584→   584→  const filteredCount = table.getFilteredRowModel().rows.length;
+   585→   585→  const { pageIndex } = table.getState().pagination;
+   586→   586→  const totalPages = table.getPageCount();
+   587→   587→
+   588→   588→  /* ─── Render ─── */
+   589→   589→
+   590→   590→  return (
+   591→   591→    <div className="space-y-6">
+   592→   592→      {/* Page header */}
+   593→   593→      <div>
+   594→   594→        <h1 className="text-2xl font-bold tracking-tight">Entreprises</h1>
+   595→   595→        <p className="text-muted-foreground">
+   596→   596→          Gérez les compagnies clientes et leurs abonnements.
+   597→   597→        </p>
+   598→   598→      </div>
+   599→   599→
+   600→   600→      {/* Filters bar */}
+   601→   601→      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+   602→   602→        <div className="relative flex-1 w-full sm:max-w-xs">
+   603→   603→          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   604→   604→          <Input
+   605→   605→            placeholder="Rechercher une entreprise..."
+   606→   606→            value={globalFilter}
+   607→   607→            onChange={(e) => setGlobalFilter(e.target.value)}
+   608→   608→            className="pl-9"
+   609→   609→          />
+   610→   610→        </div>
+   611→   611→
+   612→   612→        <Select
+   613→   613→          value={
+   614→   614→            (columnFilters.find((f) => f.id === "plan")?.value as string) ??
+   615→   615→            "all"
+   616→   616→          }
+   617→   617→          onValueChange={(v) =>
+   618→   618→            setColumnFilters((prev) => {
+   619→   619→              const rest = prev.filter((f) => f.id !== "plan");
+   620→   620→              return v === "all" ? rest : [...rest, { id: "plan", value: v }];
+   621→   621→            })
+   622→   622→          }
+   623→   623→        >
+   624→   624→          <SelectTrigger className="w-full sm:w-[150px]">
+   625→   625→            <SelectValue placeholder="Plan" />
+   626→   626→          </SelectTrigger>
+   627→   627→          <SelectContent>
+   628→   628→            <SelectItem value="all">Tous les plans</SelectItem>
+   629→   629→            <SelectItem value="starter">Starter</SelectItem>
+   630→   630→            <SelectItem value="pro">Pro</SelectItem>
+   631→   631→            <SelectItem value="enterprise">Enterprise</SelectItem>
+   632→   632→          </SelectContent>
+   633→   633→        </Select>
+   634→   634→
+   635→   635→        <Select
+   636→   636→          value={
+   637→   637→            (columnFilters.find((f) => f.id === "status")?.value as string) ??
+   638→   638→            "all"
+   639→   639→          }
+   640→   640→          onValueChange={(v) =>
+   641→   641→            setColumnFilters((prev) => {
+   642→   642→              const rest = prev.filter((f) => f.id !== "status");
+   643→   643→              return v === "all"
+   644→   644→                ? rest
+   645→   645→                : [...rest, { id: "status", value: v }];
+   646→   646→            })
+   647→   647→          }
+   648→   648→        >
+   649→   649→          <SelectTrigger className="w-full sm:w-[150px]">
+   650→   650→            <SelectValue placeholder="Statut" />
+   651→   651→          </SelectTrigger>
+   652→   652→          <SelectContent>
+   653→   653→            <SelectItem value="all">Tous les statuts</SelectItem>
+   654→   654→            <SelectItem value="active">Actif</SelectItem>
+   655→   655→            <SelectItem value="suspended">Suspendu</SelectItem>
+   656→   656→            <SelectItem value="inactive">Inactif</SelectItem>
+   657→   657→          </SelectContent>
+   658→   658→        </Select>
+   659→   659→
+   660→   660→        <Button
+   661→   661→          className="w-full sm:w-auto ml-auto"
+   662→   662→          onClick={() => {
+   663→   663→            setCreateForm({
+   664→   664→              name: "",
+   665→   665→              slug: "",
+   666→   666→              adminName: "",
+   667→   667→              adminEmail: "",
+   668→   668→              adminPhone: "",
+   669→   669→              plan: "starter",
+   670→   670→              country: "SN",
+   671→   671→            });
+   672→   672→            slugManuallyEdited.current = false;
+   673→   673→            setCreateOpen(true);
+   674→   674→          }}
+   675→   675→        >
+   676→   676→          <Plus className="h-4 w-4 mr-2" />
+   677→   677→          Créer une entreprise
+   678→   678→        </Button>
+   679→   679→      </div>
+   680→   680→
+   681→   681→      {/* Table or Loading */}
+   682→   682→      <div className="rounded-lg border bg-card">
+   683→   683→        {loading ? (
+   684→   684→          /* ── Skeleton ── */
+   685→   685→          <div className="p-4 space-y-3">
+   686→   686→            <Skeleton className="h-10 w-full" />
+   687→   687→            {Array.from({ length: 5 }).map((_, i) => (
+   688→   688→              <Skeleton key={i} className="h-14 w-full" />
+   689→   689→            ))}
+   690→   690→          </div>
+   691→   691→        ) : filteredCount === 0 ? (
+   692→   692→          /* ── Empty state ── */
+   693→   693→          <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+   694→   694→            <Building2 className="h-12 w-12 stroke-1" />
+   695→   695→            <p className="text-sm font-medium">Aucune entreprise trouvée</p>
+   696→   696→            <p className="text-xs">
+   697→   697→              Essayez de modifier vos filtres ou créez une nouvelle entreprise.
+   698→   698→            </p>
+   699→   699→          </div>
+   700→   700→        ) : (
+   701→   701→          /* ── Data table ── */
+   702→   702→          <>
+   703→   703→            <Table>
+   704→   704→              <TableHeader>
+   705→   705→                {table.getHeaderGroups().map((headerGroup) => (
+   706→   706→                  <TableRow key={headerGroup.id} className="hover:bg-transparent">
+   707→   707→                    {headerGroup.headers.map((header) => (
+   708→   708→                      <TableHead key={header.id} className="h-10 px-4">
+   709→   709→                        {header.isPlaceholder
+   710→   710→                          ? null
+   711→   711→                          : flexRender(
+   712→   712→                              header.column.columnDef.header,
+   713→   713→                              header.getContext(),
+   714→   714→                            )}
+   715→   715→                      </TableHead>
+   716→   716→                    ))}
+   717→   717→                  </TableRow>
+   718→   718→                ))}
+   719→   719→              </TableHeader>
+   720→   720→              <TableBody>
+   721→   721→                {table.getRowModel().rows.map((row, idx) => (
+   722→   722→                  <TableRow
+   723→   723→                    key={row.id}
+   724→   724→                    className={idx % 2 === 0 ? "bg-muted/20" : ""}
+   725→   725→                  >
+   726→   726→                    {row.getVisibleCells().map((cell) => (
+   727→   727→                      <TableCell key={cell.id} className="px-4 py-3 text-sm">
+   728→   728→                        {flexRender(
+   729→   729→                          cell.column.columnDef.cell,
+   730→   730→                          cell.getContext(),
+   731→   731→                        )}
+   732→   732→                      </TableCell>
+   733→   733→                    ))}
+   734→   734→                  </TableRow>
+   735→   735→                ))}
+   736→   736→              </TableBody>
+   737→   737→            </Table>
+   738→   738→
+   739→   739→            {/* Pagination footer */}
+   740→   740→            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t">
+   741→   741→              <p className="text-xs text-muted-foreground">
+   742→   742→                {filteredCount} entreprise{filteredCount > 1 ? "s" : ""} sur{" "}
+   743→   743→                {totalTenants}
+   744→   744→              </p>
+   745→   745→              {totalPages > 1 && (
+   746→   746→                <Pagination>
+   747→   747→                  <PaginationContent>
+   748→   748→                    <PaginationItem>
+   749→   749→                      <PaginationPrevious
+   750→   750→                        href="#"
+   751→   751→                        onClick={(e) => {
+   752→   752→                          e.preventDefault();
+   753→   753→                          table.previousPage();
+   754→   754→                        }}
+   755→   755→                        className={
+   756→   756→                          pageIndex === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"
+   757→   757→                        }
+   758→   758→                      />
+   759→   759→                    </PaginationItem>
+   760→   760→
+   761→   761→                    {/* Generate page numbers */}
+   762→   762→                    {generatePageNumbers(pageIndex, totalPages).map((p, i) =>
+   763→   763→                      p === "ellipsis" ? (
+   764→   764→                        <PaginationItem key={`ellipsis-${i}`}>
+   765→   765→                          <span className="flex h-9 w-9 items-center justify-center text-sm text-muted-foreground">
+   766→   766→                            &hellip;
+   767→   767→                          </span>
+   768→   768→                        </PaginationItem>
+   769→   769→                      ) : (
+   770→   770→                        <PaginationItem key={p}>
+   771→   771→                          <PaginationLink
+   772→   772→                            href="#"
+   773→   773→                            isActive={pageIndex === p}
+   774→   774→                            onClick={(e) => {
+   775→   775→                              e.preventDefault();
+   776→   776→                              table.setPageIndex(p as number);
+   777→   777→                            }}
+   778→   778→                            className="cursor-pointer"
+   779→   779→                          >
+   780→   780→                            {(p as number) + 1}
+   781→   781→                          </PaginationLink>
+   782→   782→                        </PaginationItem>
+   783→   783→                      ),
+   784→   784→                    )}
+   785→   785→
+   786→   786→                    <PaginationItem>
+   787→   787→                      <PaginationNext
+   788→   788→                        href="#"
+   789→   789→                        onClick={(e) => {
+   790→   790→                          e.preventDefault();
+   791→   791→                          table.nextPage();
+   792→   792→                        }}
+   793→   793→                        className={
+   794→   794→                          pageIndex >= totalPages - 1
+   795→   795→                            ? "pointer-events-none opacity-50"
+   796→   796→                            : "cursor-pointer"
+   797→   797→                        }
+   798→   798→                      />
+   799→   799→                    </PaginationItem>
+   800→   800→                  </PaginationContent>
+   801→   801→                </Pagination>
+   802→   802→              )}
+   803→   803→            </div>
+   804→   804→          </>
+   805→   805→        )}
+   806→   806→      </div>
+   807→   807→
+   808→   808→      {/* ─── Suspend Dialog ─── */}
+   809→   809→      <Dialog open={suspendOpen} onOpenChange={(open) => !open && setSuspendOpen(false)}>
+   810→   810→        <DialogContent>
+   811→   811→          <DialogHeader>
+   812→   812→            <DialogTitle className="flex items-center gap-2">
+   813→   813→              <ShieldOff className="h-5 w-5 text-amber-600" />
+   814→   814→              Suspendre {suspendTarget?.name}
+   815→   815→            </DialogTitle>
+   816→   816→          </DialogHeader>
+   817→   817→          <div className="space-y-4">
+   818→   818→            <p className="text-sm text-muted-foreground">
+   819→   819→              Cette action désactivera tous les utilisateurs de cette entreprise.
+   820→   820→              Indiquez la raison de la suspension.
+   821→   821→            </p>
+   822→   822→            <div className="space-y-2">
+   823→   823→              <Label htmlFor="suspend-reason">Raison de la suspension *</Label>
+   824→   824→              <Textarea
+   825→   825→                id="suspend-reason"
+   826→   826→                placeholder="Ex: Non-paiement de l'abonnement..."
+   827→   827→                value={suspendReason}
+   828→   828→                onChange={(e) => setSuspendReason(e.target.value)}
+   829→   829→                rows={3}
+   830→   830→              />
+   831→   831→            </div>
+   832→   832→          </div>
+   833→   833→          <DialogFooter>
+   834→   834→            <Button variant="outline" onClick={() => setSuspendOpen(false)}>
+   835→   835→              Annuler
+   836→   836→            </Button>
+   837→   837→            <Button
+   838→   838→              variant="destructive"
+   839→   839→              disabled={suspendLoading || !suspendReason.trim()}
+   840→   840→              onClick={handleSuspend}
+   841→   841→            >
+   842→   842→              {suspendLoading ? "Suspension..." : "Suspendre"}
+   843→   843→            </Button>
+   844→   844→          </DialogFooter>
+   845→   845→        </DialogContent>
+   846→   846→      </Dialog>
+   847→   847→
+   848→   848→      {/* ─── Delete AlertDialog ─── */}
+   849→   849→      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+   850→   850→        <AlertDialogContent>
+   851→   851→          <AlertDialogHeader>
+   852→   852→            <AlertDialogTitle>Supprimer {deleteTarget?.name} ?</AlertDialogTitle>
+   853→   853→            <AlertDialogDescription>
+   854→   854→              Cette action est irréversible. Toutes les données associées
+   855→   855→              (utilisateurs, bus, trajets, factures, abonnements) seront
+   856→   856→              définitivement supprimées.
+   857→   857→            </AlertDialogDescription>
+   858→   858→          </AlertDialogHeader>
+   859→   859→          <AlertDialogFooter>
+   860→   860→            <AlertDialogCancel disabled={deleteLoading}>
+   861→   861→              Annuler
+   862→   862→            </AlertDialogCancel>
+   863→   863→            <AlertDialogAction
+   864→   864→              onClick={handleDelete}
+   865→   865→              disabled={deleteLoading}
+   866→   866→              className="bg-destructive text-white hover:bg-destructive/90"
+   867→   867→            >
+   868→   868→              {deleteLoading ? "Suppression..." : "Supprimer définitivement"}
+   869→   869→            </AlertDialogAction>
+   870→   870→          </AlertDialogFooter>
+   871→   871→        </AlertDialogContent>
+   872→   872→      </AlertDialog>
+   873→   873→
+   874→   874→      {/* ─── Create Tenant Dialog ─── */}
+   875→   875→      <Dialog
+   876→   876→        open={createOpen}
+   877→   877→        onOpenChange={(open) => {
+   878→   878→          if (!open) {
+   879→   879→            setCreateOpen(false);
+   880→   880→            fetchTenants();
+   881→   881→          }
+   882→   882→        }}
+   883→   883→      >
+   884→   884→        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+   885→   885→          <DialogHeader>
+   886→   886→            <DialogTitle>Créer une entreprise</DialogTitle>
+   887→   887→          </DialogHeader>
+   888→   888→          <form
+   889→   889→            className="space-y-4"
+   890→   890→            onSubmit={async (e) => {
+   891→   891→              e.preventDefault();
+   892→   892→              setCreateLoading(true);
+   893→   893→              try {
+   894→   894→                const res = await fetch("/api/superadmin/tenants", {
+   895→   895→                  method: "POST",
+   896→   896→                  headers: { "Content-Type": "application/json" },
+   897→   897→                  body: JSON.stringify(createForm),
+   898→   898→                });
+   899→   899→                if (!res.ok) {
+   900→   900→                  const err = await res.json();
+   901→   901→                  toast.error(err.error || "Erreur lors de la création");
+   902→   902→                  return;
+   903→   903→                }
+   904→   904→                const data = await res.json();
+   905→   905→                setCredentials({
+   906→   906→                  email: data.adminEmail,
+   907→   907→                  password: data.generatedPassword,
+   908→   908→                });
+   909→   909→                setCreateOpen(false);
+   910→   910→                setCredentialsOpen(true);
+   911→   911→                toast.success("Entreprise créée avec succès !");
+   912→   912→                fetchTenants();
+   913→   913→              } catch {
+   914→   914→                toast.error("Erreur lors de la création");
+   915→   915→              } finally {
+   916→   916→                setCreateLoading(false);
+   917→   917→              }
+   918→   918→            }}
+   919→   919→          >
+   920→   920→            <div className="space-y-2">
+   921→   921→              <Label htmlFor="create-name">Nom de la compagnie *</Label>
+   922→   922→              <Input
+   923→   923→                id="create-name"
+   924→   924→                required
+   925→   925→                value={createForm.name}
+   926→   926→                onChange={(e) => {
+   927→   927→                  setCreateForm((f) => ({ ...f, name: e.target.value }));
+   928→   928→                  if (!slugManuallyEdited.current) {
+   929→   929→                    const slug = e.target.value
+   930→   930→                      .toLowerCase()
+   931→   931→                      .normalize("NFD")
+   932→   932→                      .replace(/[\u0300-\u036f]/g, "")
+   933→   933→                      .replace(/[^a-z0-9]+/g, "-")
+   934→   934→                      .replace(/(^-|-$)/g, "");
+   935→   935→                    setCreateForm((f) => ({ ...f, slug }));
+   936→   936→                  }
+   937→   937→                }}
+   938→   938→              />
+   939→   939→            </div>
+   940→   940→            <div className="space-y-2">
+   941→   941→              <Label htmlFor="create-slug">Slug *</Label>
+   942→   942→              <Input
+   943→   943→                id="create-slug"
+   944→   944→                required
+   945→   945→                value={createForm.slug}
+   946→   946→                onChange={(e) => {
+   947→   947→                  slugManuallyEdited.current = true;
+   948→   948→                  setCreateForm((f) => ({ ...f, slug: e.target.value }));
+   949→   949→                }}
+   950→   950→              />
+   951→   951→              <p className="text-xs text-muted-foreground">
+   952→   952→                Identifiant unique (ex: dakar-express)
+   953→   953→              </p>
+   954→   954→            </div>
+   955→   955→            <div className="space-y-2">
+   956→   956→              <Label htmlFor="create-admin-name">
+   957→   957→                Nom de l&apos;administrateur *
+   958→   958→              </Label>
+   959→   959→              <Input
+   960→   960→                id="create-admin-name"
+   961→   961→                required
+   962→   962→                value={createForm.adminName}
+   963→   963→                onChange={(e) =>
+   964→   964→                  setCreateForm((f) => ({ ...f, adminName: e.target.value }))
+   965→   965→                }
+   966→   966→              />
+   967→   967→            </div>
+   968→   968→            <div className="space-y-2">
+   969→   969→              <Label htmlFor="create-admin-email">Email admin *</Label>
+   970→   970→              <Input
+   971→   971→                id="create-admin-email"
+   972→   972→                type="email"
+   973→   973→                required
+   974→   974→                value={createForm.adminEmail}
+   975→   975→                onChange={(e) =>
+   976→   976→                  setCreateForm((f) => ({ ...f, adminEmail: e.target.value }))
+   977→   977→                }
+   978→   978→              />
+   979→   979→            </div>
+   980→   980→            <div className="space-y-2">
+   981→   981→              <Label htmlFor="create-admin-phone">Téléphone admin *</Label>
+   982→   982→              <Input
+   983→   983→                id="create-admin-phone"
+   984→   984→                required
+   985→   985→                value={createForm.adminPhone}
+   986→   986→                onChange={(e) =>
+   987→   987→                  setCreateForm((f) => ({ ...f, adminPhone: e.target.value }))
+   988→   988→                }
+   989→   989→              />
+   990→   990→            </div>
+   991→   991→            <div className="space-y-2">
+   992→   992→              <Label htmlFor="create-plan">Plan</Label>
+   993→   993→              <Select
+   994→   994→                value={createForm.plan}
+   995→   995→                onValueChange={(v) =>
+   996→   996→                  setCreateForm((f) => ({ ...f, plan: v }))
+   997→   997→                }
+   998→   998→              >
+   999→   999→                <SelectTrigger id="create-plan">
+  1000→  1000→                  <SelectValue />
+  1001→  1001→                </SelectTrigger>
+  1002→  1002→                <SelectContent>
+  1003→  1003→                  <SelectItem value="starter">Starter</SelectItem>
+  1004→  1004→                  <SelectItem value="pro">Pro</SelectItem>
+  1005→  1005→                  <SelectItem value="enterprise">Enterprise</SelectItem>
+  1006→  1006→                </SelectContent>
+  1007→  1007→              </Select>
+  1008→  1008→            </div>
+  1009→  1009→            <div className="space-y-2">
+  1010→  1010→              <Label htmlFor="create-country">Pays</Label>
+  1011→  1011→              <Input
+  1012→  1012→                id="create-country"
+  1013→  1013→                value={createForm.country}
+  1014→  1014→                onChange={(e) =>
+  1015→  1015→                  setCreateForm((f) => ({ ...f, country: e.target.value }))
+  1016→  1016→                }
+  1017→  1017→              />
+  1018→  1018→            </div>
+  1019→  1019→            <DialogFooter>
+  1020→  1020→              <Button
+  1021→  1021→                type="button"
+  1022→  1022→                variant="outline"
+  1023→  1023→                onClick={() => setCreateOpen(false)}
+  1024→  1024→              >
+  1025→  1025→                Annuler
+  1026→  1026→              </Button>
+  1027→  1027→              <Button type="submit" disabled={createLoading}>
+  1028→  1028→                {createLoading ? "Création..." : "Créer"}
+  1029→  1029→              </Button>
+  1030→  1030→            </DialogFooter>
+  1031→  1031→          </form>
+  1032→  1032→        </DialogContent>
+  1033→  1033→      </Dialog>
+  1034→  1034→
+  1035→  1035→      {/* ─── Credentials Dialog ─── */}
+  1036→  1036→      <Dialog open={credentialsOpen} onOpenChange={setCredentialsOpen}>
+  1037→  1037→        <DialogContent>
+  1038→  1038→          <DialogHeader>
+  1039→  1039→            <DialogTitle className="flex items-center gap-2">
+  1040→  1040→              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+  1041→  1041→              Entreprise créée avec succès !
+  1042→  1042→            </DialogTitle>
+  1043→  1043→          </DialogHeader>
+  1044→  1044→          {credentials && (
+  1045→  1045→            <div className="space-y-4">
+  1046→  1046→              <div className="rounded-lg border p-4 bg-muted/50 space-y-3">
+  1047→  1047→                <div>
+  1048→  1048→                  <p className="text-xs text-muted-foreground">Email</p>
+  1049→  1049→                  <p className="font-mono text-sm font-medium">
+  1050→  1050→                    {credentials.email}
+  1051→  1051→                  </p>
+  1052→  1052→                </div>
+  1053→  1053→                <div>
+  1054→  1054→                  <p className="text-xs text-muted-foreground">Mot de passe</p>
+  1055→  1055→                  <p className="font-mono text-sm font-medium">
+  1056→  1056→                    {credentials.password}
+  1057→  1057→                  </p>
+  1058→  1058→                </div>
+  1059→  1059→              </div>
+  1060→  1060→              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+  1061→  1061→                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+  1062→  1062→                <p>
+  1063→  1063→                  Partagez ces identifiants avec l&apos;administrateur. Ce mot
+  1064→  1064→                  de passe ne sera plus affiché.
+  1065→  1065→                </p>
+  1066→  1066→              </div>
+  1067→  1067→              <Button
+  1068→  1068→                variant="outline"
+  1069→  1069→                className="w-full"
+  1070→  1070→                onClick={() => {
+  1071→  1071→                  navigator.clipboard.writeText(
+  1072→  1072→                    `Email: ${credentials.email}\nMot de passe: ${credentials.password}`,
+  1073→  1073→                  );
+  1074→  1074→                  toast.success("Identifiants copiés dans le presse-papiers");
+  1075→  1075→                }}
+  1076→  1076→              >
+  1077→  1077→                Copier les identifiants
+  1078→  1078→              </Button>
+  1079→  1079→            </div>
+  1080→  1080→          )}
+  1081→  1081→          <DialogFooter>
+  1082→  1082→            <Button onClick={() => setCredentialsOpen(false)}>Fermer</Button>
+  1083→  1083→          </DialogFooter>
+  1084→  1084→        </DialogContent>
+  1085→  1085→      </Dialog>
+  1086→  1086→    </div>
+  1087→  1087→  );
+  1088→  1088→}
+  1089→  1089→
+  1090→  1090→/* ─── Helpers ─── */
+  1091→  1091→
+  1092→  1092→function generatePageNumbers(
+  1093→  1093→  current: number,
+  1094→  1094→  total: number,
+  1095→  1095→): (number | "ellipsis")[] {
+  1096→  1096→  if (total <= 7) return Array.from({ length: total }, (_, i) => i);
+  1097→  1097→
+  1098→  1098→  const pages: (number | "ellipsis")[] = [0];
+  1099→  1099→
+  1100→  1100→  if (current > 2) pages.push("ellipsis");
+  1101→  1101→
+  1102→  1102→  const start = Math.max(1, current - 1);
+  1103→  1103→  const end = Math.min(total - 2, current + 1);
+  1104→  1104→
+  1105→  1105→  for (let i = start; i <= end; i++) pages.push(i);
+  1106→  1106→
+  1107→  1107→  if (current < total - 3) pages.push("ellipsis");
+  1108→  1108→
+  1109→  1109→  pages.push(total - 1);
+  1110→  1110→  return pages;
+  1111→  1111→}

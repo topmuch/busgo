@@ -1,0 +1,1068 @@
+     1→"use client";
+     2→
+     3→import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+     4→import { useRouter } from "next/navigation";
+     5→import {
+     6→  useReactTable,
+     7→  getCoreRowModel,
+     8→  getSortedRowModel,
+     9→  getFilteredRowModel,
+    10→  getPaginationRowModel,
+    11→  flexRender,
+    12→  type ColumnDef,
+    13→  type SortingState,
+    14→  type ColumnFiltersState,
+    15→} from "@tanstack/react-table";
+    16→import {
+    17→  Table,
+    18→  TableBody,
+    19→  TableCell,
+    20→  TableHead,
+    21→  TableHeader,
+    22→  TableRow,
+    23→} from "@/components/ui/table";
+    24→import { Button } from "@/components/ui/button";
+    25→import { Badge } from "@/components/ui/badge";
+    26→import { Input } from "@/components/ui/input";
+    27→import { Skeleton } from "@/components/ui/skeleton";
+    28→import { Label } from "@/components/ui/label";
+    29→import { Textarea } from "@/components/ui/textarea";
+    30→import {
+    31→  Dialog,
+    32→  DialogContent,
+    33→  DialogHeader,
+    34→  DialogTitle,
+    35→  DialogFooter,
+    36→} from "@/components/ui/dialog";
+    37→import {
+    38→  Select,
+    39→  SelectContent,
+    40→  SelectItem,
+    41→  SelectTrigger,
+    42→  SelectValue,
+    43→} from "@/components/ui/select";
+    44→import {
+    45→  AlertDialog,
+    46→  AlertDialogAction,
+    47→  AlertDialogCancel,
+    48→  AlertDialogContent,
+    49→  AlertDialogDescription,
+    50→  AlertDialogFooter,
+    51→  AlertDialogHeader,
+    52→  AlertDialogTitle,
+    53→} from "@/components/ui/alert-dialog";
+    54→import {
+    55→  DropdownMenu,
+    56→  DropdownMenuContent,
+    57→  DropdownMenuItem,
+    58→  DropdownMenuSeparator,
+    59→  DropdownMenuTrigger,
+    60→} from "@/components/ui/dropdown-menu";
+    61→import {
+    62→  Pagination,
+    63→  PaginationContent,
+    64→  PaginationItem,
+    65→  PaginationLink,
+    66→  PaginationNext,
+    67→  PaginationPrevious,
+    68→} from "@/components/ui/pagination";
+    69→import {
+    70→  Building2,
+    71→  Search,
+    72→  Eye,
+    73→  CheckCircle2,
+    74→  AlertTriangle,
+    75→  Plus,
+    76→  MoreHorizontal,
+    77→  ArrowUpDown,
+    78→  ArrowUp,
+    79→  ArrowDown,
+    80→  Trash2,
+    81→  ShieldOff,
+    82→  ShieldCheck,
+    83→} from "lucide-react";
+    84→import { toast } from "sonner";
+    85→
+    86→/* ─── Types ─── */
+    87→
+    88→interface Tenant {
+    89→  id: string;
+    90→  name: string;
+    91→  slug: string;
+    92→  phone: string | null;
+    93→  email: string | null;
+    94→  plan: string;
+    95→  isActive: boolean;
+    96→  isSuspended: boolean;
+    97→  subscriptionStatus: string;
+    98→  createdAt: string;
+    99→  _count: { users: number; buses: number; trajets: number; invoices: number };
+   100→  subscriptions: {
+   101→    id: string;
+   102→    status: string;
+   103→    plan: string;
+   104→    totalAmount: number;
+   105→    busCount: number;
+   106→    endDate: string;
+   107→  }[];
+   108→}
+   109→
+   110→/* ─── Constants ─── */
+   111→
+   112→const PAGE_SIZE = 10;
+   113→
+   114→const planBadgeCls: Record<string, string> = {
+   115→  starter:
+   116→    "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+   117→  pro: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
+   118→  enterprise:
+   119→    "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+   120→};
+   121→
+   122→const statusMeta: Record<
+   123→  string,
+   124→  { label: string; cls: string }
+   125→> = {
+   126→  active: {
+   127→    label: "Actif",
+   128→    cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
+   129→  },
+   130→  suspended: {
+   131→    label: "Suspendu",
+   132→    cls: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+   133→  },
+   134→  inactive: {
+   135→    label: "Inactif",
+   136→    cls: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+   137→  },
+   138→};
+   139→
+   140→function tenantStatus(t: Tenant): string {
+   141→  if (t.isSuspended) return "suspended";
+   142→  if (t.isActive) return "active";
+   143→  return "inactive";
+   144→}
+   145→
+   146→/* ─── Sort Header Helper ─── */
+   147→
+   148→function SortHeader({
+   149→  column,
+   150→  children,
+   151→}: {
+   152→  column: { toggleSorting: (desc: boolean) => void; getIsSorted: () => false | "asc" | "desc" };
+   153→  children: React.ReactNode;
+   154→}) {
+   155→  const sorted = column.getIsSorted();
+   156→  return (
+   157→    <Button
+   158→      variant="ghost"
+   159→      size="sm"
+   160→      className="-ml-3 h-8 text-xs font-medium text-muted-foreground hover:text-foreground"
+   161→      onClick={() => column.toggleSorting(sorted === "asc")}
+   162→    >
+   163→      {children}
+   164→      {sorted === "asc" ? (
+   165→        <ArrowUp className="ml-1 h-3.5 w-3.5" />
+   166→      ) : sorted === "desc" ? (
+   167→        <ArrowDown className="ml-1 h-3.5 w-3.5" />
+   168→      ) : (
+   169→        <ArrowUpDown className="ml-1 h-3.5 w-3.5 opacity-50" />
+   170→      )}
+   171→    </Button>
+   172→  );
+   173→}
+   174→
+   175→/* ─── Component ─── */
+   176→
+   177→export default function TenantsPage() {
+   178→  const router = useRouter();
+   179→
+   180→  /* data */
+   181→  const [tenants, setTenants] = useState<Tenant[]>([]);
+   182→  const [loading, setLoading] = useState(true);
+   183→
+   184→  /* table state */
+   185→  const [sorting, setSorting] = useState<SortingState>([]);
+   186→  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+   187→  const [globalFilter, setGlobalFilter] = useState("");
+   188→  const [totalTenants, setTotalTenants] = useState(0);
+   189→
+   190→  /* create tenant */
+   191→  const [createOpen, setCreateOpen] = useState(false);
+   192→  const [createLoading, setCreateLoading] = useState(false);
+   193→  const [createForm, setCreateForm] = useState({
+   194→    name: "",
+   195→    slug: "",
+   196→    adminName: "",
+   197→    adminEmail: "",
+   198→    adminPhone: "",
+   199→    plan: "starter" as string,
+   200→    country: "SN",
+   201→  });
+   202→  const slugManuallyEdited = useRef(false);
+   203→
+   204→  /* credentials dialog */
+   205→  const [credentialsOpen, setCredentialsOpen] = useState(false);
+   206→  const [credentials, setCredentials] = useState<{
+   207→    email: string;
+   208→    password: string;
+   209→  } | null>(null);
+   210→
+   211→  /* suspend dialog */
+   212→  const [suspendOpen, setSuspendOpen] = useState(false);
+   213→  const [suspendTarget, setSuspendTarget] = useState<Tenant | null>(null);
+   214→  const [suspendReason, setSuspendReason] = useState("");
+   215→  const [suspendLoading, setSuspendLoading] = useState(false);
+   216→
+   217→  /* delete dialog */
+   218→  const [deleteOpen, setDeleteOpen] = useState(false);
+   219→  const [deleteTarget, setDeleteTarget] = useState<Tenant | null>(null);
+   220→  const [deleteLoading, setDeleteLoading] = useState(false);
+   221→
+   222→  /* ─── Fetch ─── */
+   223→
+   224→  const fetchTenants = useCallback(async () => {
+   225→    setLoading(true);
+   226→    try {
+   227→      const res = await fetch("/api/superadmin/tenants?limit=9999");
+   228→      const data = await res.json();
+   229→      if (Array.isArray(data)) {
+   230→        setTenants(data);
+   231→        setTotalTenants(data.length);
+   232→      } else if (data.tenants) {
+   233→        setTenants(data.tenants);
+   234→        setTotalTenants(data.total ?? data.tenants.length);
+   235→      }
+   236→    } finally {
+   237→      setLoading(false);
+   238→    }
+   239→  }, []);
+   240→
+   241→  useEffect(() => {
+   242→    fetchTenants();
+   243→  }, [fetchTenants]);
+   244→
+   245→  /* ─── Actions ─── */
+   246→
+   247→  const openSuspendDialog = useCallback((tenant: Tenant) => {
+   248→    setSuspendTarget(tenant);
+   249→    setSuspendReason("");
+   250→    setSuspendOpen(true);
+   251→  }, []);
+   252→
+   253→  const handleSuspend = useCallback(async () => {
+   254→    if (!suspendTarget || !suspendReason.trim()) return;
+   255→    setSuspendLoading(true);
+   256→    try {
+   257→      const res = await fetch(`/api/superadmin/tenants/${suspendTarget.id}/suspend`, {
+   258→        method: "POST",
+   259→        headers: { "Content-Type": "application/json" },
+   260→        body: JSON.stringify({ reason: suspendReason.trim() }),
+   261→      });
+   262→      if (!res.ok) {
+   263→        const err = await res.json();
+   264→        toast.error(err.error || "Erreur lors de la suspension");
+   265→        return;
+   266→      }
+   267→      toast.success(`${suspendTarget.name} suspendue`);
+   268→      setSuspendOpen(false);
+   269→      fetchTenants();
+   270→    } catch {
+   271→      toast.error("Erreur lors de la suspension");
+   272→    } finally {
+   273→      setSuspendLoading(false);
+   274→    }
+   275→  }, [suspendTarget, suspendReason, fetchTenants]);
+   276→
+   277→  const handleReactivate = useCallback(
+   278→    async (tenant: Tenant) => {
+   279→      try {
+   280→        const res = await fetch(
+   281→          `/api/superadmin/tenants/${tenant.id}/reactivate`,
+   282→          { method: "POST" },
+   283→        );
+   284→        if (!res.ok) {
+   285→          const err = await res.json();
+   286→          toast.error(err.error || "Erreur lors de la réactivation");
+   287→          return;
+   288→        }
+   289→        toast.success(`${tenant.name} réactivée`);
+   290→        fetchTenants();
+   291→      } catch {
+   292→        toast.error("Erreur lors de la réactivation");
+   293→      }
+   294→    },
+   295→    [fetchTenants],
+   296→  );
+   297→
+   298→  const openDeleteDialog = useCallback((tenant: Tenant) => {
+   299→    setDeleteTarget(tenant);
+   300→    setDeleteOpen(true);
+   301→  }, []);
+   302→
+   303→  const handleDelete = useCallback(async () => {
+   304→    if (!deleteTarget) return;
+   305→    setDeleteLoading(true);
+   306→    try {
+   307→      const res = await fetch(
+   308→        `/api/superadmin/tenants/${deleteTarget.id}?confirm=true`,
+   309→        { method: "DELETE" },
+   310→      );
+   311→      if (!res.ok) {
+   312→        const err = await res.json();
+   313→        toast.error(err.error || "Erreur lors de la suppression");
+   314→        return;
+   315→      }
+   316→      toast.success(`${deleteTarget.name} supprimée`);
+   317→      setDeleteOpen(false);
+   318→      fetchTenants();
+   319→    } catch {
+   320→      toast.error("Erreur lors de la suppression");
+   321→    } finally {
+   322→      setDeleteLoading(false);
+   323→    }
+   324→  }, [deleteTarget, fetchTenants]);
+   325→
+   326→  /* ─── Columns ─── */
+   327→
+   328→  const columns = useMemo<ColumnDef<Tenant, unknown>[]>(
+   329→    () => [
+   330→      {
+   331→        accessorKey: "name",
+   332→        header: ({ column }) => <SortHeader column={column}>Entreprise</SortHeader>,
+   333→        cell: ({ row }) => (
+   334→          <div className="flex items-center gap-2.5 min-w-[180px]">
+   335→            <div className="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+   336→              <Building2 className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+   337→            </div>
+   338→            <div className="min-w-0">
+   339→              <p className="font-semibold text-sm leading-tight truncate">
+   340→                {row.original.name}
+   341→              </p>
+   342→              <Badge
+   343→                variant="outline"
+   344→                className="text-[10px] mt-0.5 font-normal"
+   345→              >
+   346→                @{row.original.slug}
+   347→              </Badge>
+   348→            </div>
+   349→          </div>
+   350→        ),
+   351→        filterFn: (row, _id, value: string) => {
+   352→          if (!value) return true;
+   353→          const s = value.toLowerCase();
+   354→          return (
+   355→            row.original.name.toLowerCase().includes(s) ||
+   356→            row.original.slug.toLowerCase().includes(s)
+   357→          );
+   358→        },
+   359→      },
+   360→      {
+   361→        accessorKey: "plan",
+   362→        header: ({ column }) => <SortHeader column={column}>Plan</SortHeader>,
+   363→        cell: ({ row }) => {
+   364→          const plan = row.original.plan;
+   365→          return (
+   366→            <Badge
+   367→              variant="outline"
+   368→              className={`${planBadgeCls[plan] ?? ""} capitalize text-xs`}
+   369→            >
+   370→              {plan}
+   371→            </Badge>
+   372→          );
+   373→        },
+   374→      },
+   375→      {
+   376→        id: "status",
+   377→        header: ({ column }) => <SortHeader column={column}>Statut</SortHeader>,
+   378→        accessorFn: (row) => tenantStatus(row),
+   379→        filterFn: (row, _id, value: string) => {
+   380→          if (!value) return true;
+   381→          return tenantStatus(row.original) === value;
+   382→        },
+   383→        sortingFn: (rowA, rowB) => {
+   384→          const order: Record<string, number> = {
+   385→            suspended: 0,
+   386→            inactive: 1,
+   387→            active: 2,
+   388→          };
+   389→          return (
+   390→            (order[tenantStatus(rowA.original)] ?? 0) -
+   391→            (order[tenantStatus(rowB.original)] ?? 0)
+   392→          );
+   393→        },
+   394→        cell: ({ row }) => {
+   395→          const s = tenantStatus(row.original);
+   396→          const meta = statusMeta[s];
+   397→          return (
+   398→            <Badge
+   399→              variant="outline"
+   400→              className={`${meta?.cls ?? ""} text-xs`}
+   401→            >
+   402→              {meta?.label ?? s}
+   403→            </Badge>
+   404→          );
+   405→        },
+   406→      },
+   407→      {
+   408→        accessorKey: "_count.buses",
+   409→        header: ({ column }) => <SortHeader column={column}>Bus</SortHeader>,
+   410→        cell: ({ row }) => (
+   411→          <span className="text-sm font-medium tabular-nums">
+   412→            {row.original._count.buses}
+   413→          </span>
+   414→        ),
+   415→      },
+   416→      {
+   417→        accessorKey: "_count.users",
+   418→        header: ({ column }) => (
+   419→          <SortHeader column={column}>Utilisateurs</SortHeader>
+   420→        ),
+   421→        cell: ({ row }) => (
+   422→          <span className="text-sm font-medium tabular-nums">
+   423→            {row.original._count.users}
+   424→          </span>
+   425→        ),
+   426→      },
+   427→      {
+   428→        id: "subscription",
+   429→        header: () => (
+   430→          <span className="text-xs font-medium text-muted-foreground">
+   431→            Abonnement
+   432→          </span>
+   433→        ),
+   434→        cell: ({ row }) => {
+   435→          const sub = row.original.subscriptions[0];
+   436→          if (!sub)
+   437→            return (
+   438→              <span className="text-sm text-muted-foreground">&mdash;</span>
+   439→            );
+   440→          return (
+   441→            <div className="text-sm whitespace-nowrap">
+   442→              <span className="font-medium">
+   443→                {new Intl.NumberFormat("fr-FR").format(sub.totalAmount)} FCFA
+   444→              </span>
+   445→              <span className="text-muted-foreground"> &middot; {sub.busCount} bus</span>
+   446→            </div>
+   447→          );
+   448→        },
+   449→      },
+   450→      {
+   451→        accessorKey: "createdAt",
+   452→        header: ({ column }) => (
+   453→          <SortHeader column={column}>Créé le</SortHeader>
+   454→        ),
+   455→        cell: ({ row }) => (
+   456→          <span className="text-sm text-muted-foreground whitespace-nowrap">
+   457→            {new Date(row.original.createdAt).toLocaleDateString("fr-FR", {
+   458→              day: "2-digit",
+   459→              month: "short",
+   460→              year: "numeric",
+   461→            })}
+   462→          </span>
+   463→        ),
+   464→      },
+   465→      {
+   466→        id: "actions",
+   467→        header: () => null,
+   468→        size: 48,
+   469→        cell: ({ row }) => {
+   470→          const tenant = row.original;
+   471→          const status = tenantStatus(tenant);
+   472→          return (
+   473→            <DropdownMenu>
+   474→              <DropdownMenuTrigger asChild>
+   475→                <Button variant="ghost" size="icon" className="h-8 w-8">
+   476→                  <MoreHorizontal className="h-4 w-4" />
+   477→                  <span className="sr-only">Actions</span>
+   478→                </Button>
+   479→              </DropdownMenuTrigger>
+   480→              <DropdownMenuContent align="end" className="w-48">
+   481→                <DropdownMenuItem
+   482→                  onClick={() => router.push(`/superadmin/tenants/${tenant.id}`)}
+   483→                >
+   484→                  <Eye className="h-4 w-4" />
+   485→                  Voir le détail
+   486→                </DropdownMenuItem>
+   487→                {status === "suspended" ? (
+   488→                  <DropdownMenuItem
+   489→                    onClick={() => handleReactivate(tenant)}
+   490→                  >
+   491→                    <ShieldCheck className="h-4 w-4" />
+   492→                    Réactiver
+   493→                  </DropdownMenuItem>
+   494→                ) : (
+   495→                  <DropdownMenuItem
+   496→                    onClick={() => openSuspendDialog(tenant)}
+   497→                  >
+   498→                    <ShieldOff className="h-4 w-4" />
+   499→                    Suspendre
+   500→                  </DropdownMenuItem>
+   501→                )}
+   502→                <DropdownMenuSeparator />
+   503→                <DropdownMenuItem
+   504→                  variant="destructive"
+   505→                  onClick={() => openDeleteDialog(tenant)}
+   506→                >
+   507→                  <Trash2 className="h-4 w-4" />
+   508→                  Supprimer
+   509→                </DropdownMenuItem>
+   510→              </DropdownMenuContent>
+   511→            </DropdownMenu>
+   512→          );
+   513→        },
+   514→      },
+   515→    ],
+   516→    [router, handleReactivate, openSuspendDialog, openDeleteDialog],
+   517→  );
+   518→
+   519→  /* ─── Table ─── */
+   520→
+   521→  const table = useReactTable({
+   522→    data: tenants,
+   523→    columns,
+   524→    state: {
+   525→      sorting,
+   526→      columnFilters,
+   527→      globalFilter,
+   528→    },
+   529→    onSortingChange: setSorting,
+   530→    onColumnFiltersChange: setColumnFilters,
+   531→    onGlobalFilterChange: setGlobalFilter,
+   532→    getCoreRowModel: getCoreRowModel(),
+   533→    getSortedRowModel: getSortedRowModel(),
+   534→    getFilteredRowModel: getFilteredRowModel(),
+   535→    getPaginationRowModel: getPaginationRowModel(),
+   536→    initialState: {
+   537→      pagination: { pageSize: PAGE_SIZE },
+   538→    },
+   539→  });
+   540→
+   541→  const filteredCount = table.getFilteredRowModel().rows.length;
+   542→  const { pageIndex } = table.getState().pagination;
+   543→  const totalPages = table.getPageCount();
+   544→
+   545→  /* ─── Render ─── */
+   546→
+   547→  return (
+   548→    <div className="space-y-6">
+   549→      {/* Page header */}
+   550→      <div>
+   551→        <h1 className="text-2xl font-bold tracking-tight">Entreprises</h1>
+   552→        <p className="text-muted-foreground">
+   553→          Gérez les compagnies clientes et leurs abonnements.
+   554→        </p>
+   555→      </div>
+   556→
+   557→      {/* Filters bar */}
+   558→      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+   559→        <div className="relative flex-1 w-full sm:max-w-xs">
+   560→          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   561→          <Input
+   562→            placeholder="Rechercher une entreprise..."
+   563→            value={globalFilter}
+   564→            onChange={(e) => setGlobalFilter(e.target.value)}
+   565→            className="pl-9"
+   566→          />
+   567→        </div>
+   568→
+   569→        <Select
+   570→          value={
+   571→            (columnFilters.find((f) => f.id === "plan")?.value as string) ??
+   572→            "all"
+   573→          }
+   574→          onValueChange={(v) =>
+   575→            setColumnFilters((prev) => {
+   576→              const rest = prev.filter((f) => f.id !== "plan");
+   577→              return v === "all" ? rest : [...rest, { id: "plan", value: v }];
+   578→            })
+   579→          }
+   580→        >
+   581→          <SelectTrigger className="w-full sm:w-[150px]">
+   582→            <SelectValue placeholder="Plan" />
+   583→          </SelectTrigger>
+   584→          <SelectContent>
+   585→            <SelectItem value="all">Tous les plans</SelectItem>
+   586→            <SelectItem value="starter">Starter</SelectItem>
+   587→            <SelectItem value="pro">Pro</SelectItem>
+   588→            <SelectItem value="enterprise">Enterprise</SelectItem>
+   589→          </SelectContent>
+   590→        </Select>
+   591→
+   592→        <Select
+   593→          value={
+   594→            (columnFilters.find((f) => f.id === "status")?.value as string) ??
+   595→            "all"
+   596→          }
+   597→          onValueChange={(v) =>
+   598→            setColumnFilters((prev) => {
+   599→              const rest = prev.filter((f) => f.id !== "status");
+   600→              return v === "all"
+   601→                ? rest
+   602→                : [...rest, { id: "status", value: v }];
+   603→            })
+   604→          }
+   605→        >
+   606→          <SelectTrigger className="w-full sm:w-[150px]">
+   607→            <SelectValue placeholder="Statut" />
+   608→          </SelectTrigger>
+   609→          <SelectContent>
+   610→            <SelectItem value="all">Tous les statuts</SelectItem>
+   611→            <SelectItem value="active">Actif</SelectItem>
+   612→            <SelectItem value="suspended">Suspendu</SelectItem>
+   613→            <SelectItem value="inactive">Inactif</SelectItem>
+   614→          </SelectContent>
+   615→        </Select>
+   616→
+   617→        <Button
+   618→          className="w-full sm:w-auto ml-auto"
+   619→          onClick={() => {
+   620→            setCreateForm({
+   621→              name: "",
+   622→              slug: "",
+   623→              adminName: "",
+   624→              adminEmail: "",
+   625→              adminPhone: "",
+   626→              plan: "starter",
+   627→              country: "SN",
+   628→            });
+   629→            slugManuallyEdited.current = false;
+   630→            setCreateOpen(true);
+   631→          }}
+   632→        >
+   633→          <Plus className="h-4 w-4 mr-2" />
+   634→          Créer une entreprise
+   635→        </Button>
+   636→      </div>
+   637→
+   638→      {/* Table or Loading */}
+   639→      <div className="rounded-lg border bg-card">
+   640→        {loading ? (
+   641→          /* ── Skeleton ── */
+   642→          <div className="p-4 space-y-3">
+   643→            <Skeleton className="h-10 w-full" />
+   644→            {Array.from({ length: 5 }).map((_, i) => (
+   645→              <Skeleton key={i} className="h-14 w-full" />
+   646→            ))}
+   647→          </div>
+   648→        ) : filteredCount === 0 ? (
+   649→          /* ── Empty state ── */
+   650→          <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+   651→            <Building2 className="h-12 w-12 stroke-1" />
+   652→            <p className="text-sm font-medium">Aucune entreprise trouvée</p>
+   653→            <p className="text-xs">
+   654→              Essayez de modifier vos filtres ou créez une nouvelle entreprise.
+   655→            </p>
+   656→          </div>
+   657→        ) : (
+   658→          /* ── Data table ── */
+   659→          <>
+   660→            <Table>
+   661→              <TableHeader>
+   662→                {table.getHeaderGroups().map((headerGroup) => (
+   663→                  <TableRow key={headerGroup.id} className="hover:bg-transparent">
+   664→                    {headerGroup.headers.map((header) => (
+   665→                      <TableHead key={header.id} className="h-10 px-4">
+   666→                        {header.isPlaceholder
+   667→                          ? null
+   668→                          : flexRender(
+   669→                              header.column.columnDef.header,
+   670→                              header.getContext(),
+   671→                            )}
+   672→                      </TableHead>
+   673→                    ))}
+   674→                  </TableRow>
+   675→                ))}
+   676→              </TableHeader>
+   677→              <TableBody>
+   678→                {table.getRowModel().rows.map((row, idx) => (
+   679→                  <TableRow
+   680→                    key={row.id}
+   681→                    className={idx % 2 === 0 ? "bg-muted/20" : ""}
+   682→                  >
+   683→                    {row.getVisibleCells().map((cell) => (
+   684→                      <TableCell key={cell.id} className="px-4 py-3 text-sm">
+   685→                        {flexRender(
+   686→                          cell.column.columnDef.cell,
+   687→                          cell.getContext(),
+   688→                        )}
+   689→                      </TableCell>
+   690→                    ))}
+   691→                  </TableRow>
+   692→                ))}
+   693→              </TableBody>
+   694→            </Table>
+   695→
+   696→            {/* Pagination footer */}
+   697→            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t">
+   698→              <p className="text-xs text-muted-foreground">
+   699→                {filteredCount} entreprise{filteredCount > 1 ? "s" : ""} sur{" "}
+   700→                {totalTenants}
+   701→              </p>
+   702→              {totalPages > 1 && (
+   703→                <Pagination>
+   704→                  <PaginationContent>
+   705→                    <PaginationItem>
+   706→                      <PaginationPrevious
+   707→                        href="#"
+   708→                        onClick={(e) => {
+   709→                          e.preventDefault();
+   710→                          table.previousPage();
+   711→                        }}
+   712→                        className={
+   713→                          pageIndex === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"
+   714→                        }
+   715→                      />
+   716→                    </PaginationItem>
+   717→
+   718→                    {/* Generate page numbers */}
+   719→                    {generatePageNumbers(pageIndex, totalPages).map((p, i) =>
+   720→                      p === "ellipsis" ? (
+   721→                        <PaginationItem key={`ellipsis-${i}`}>
+   722→                          <span className="flex h-9 w-9 items-center justify-center text-sm text-muted-foreground">
+   723→                            &hellip;
+   724→                          </span>
+   725→                        </PaginationItem>
+   726→                      ) : (
+   727→                        <PaginationItem key={p}>
+   728→                          <PaginationLink
+   729→                            href="#"
+   730→                            isActive={pageIndex === p}
+   731→                            onClick={(e) => {
+   732→                              e.preventDefault();
+   733→                              table.setPageIndex(p as number);
+   734→                            }}
+   735→                            className="cursor-pointer"
+   736→                          >
+   737→                            {(p as number) + 1}
+   738→                          </PaginationLink>
+   739→                        </PaginationItem>
+   740→                      ),
+   741→                    )}
+   742→
+   743→                    <PaginationItem>
+   744→                      <PaginationNext
+   745→                        href="#"
+   746→                        onClick={(e) => {
+   747→                          e.preventDefault();
+   748→                          table.nextPage();
+   749→                        }}
+   750→                        className={
+   751→                          pageIndex >= totalPages - 1
+   752→                            ? "pointer-events-none opacity-50"
+   753→                            : "cursor-pointer"
+   754→                        }
+   755→                      />
+   756→                    </PaginationItem>
+   757→                  </PaginationContent>
+   758→                </Pagination>
+   759→              )}
+   760→            </div>
+   761→          </>
+   762→        )}
+   763→      </div>
+   764→
+   765→      {/* ─── Suspend Dialog ─── */}
+   766→      <Dialog open={suspendOpen} onOpenChange={(open) => !open && setSuspendOpen(false)}>
+   767→        <DialogContent>
+   768→          <DialogHeader>
+   769→            <DialogTitle className="flex items-center gap-2">
+   770→              <ShieldOff className="h-5 w-5 text-amber-600" />
+   771→              Suspendre {suspendTarget?.name}
+   772→            </DialogTitle>
+   773→          </DialogHeader>
+   774→          <div className="space-y-4">
+   775→            <p className="text-sm text-muted-foreground">
+   776→              Cette action désactivera tous les utilisateurs de cette entreprise.
+   777→              Indiquez la raison de la suspension.
+   778→            </p>
+   779→            <div className="space-y-2">
+   780→              <Label htmlFor="suspend-reason">Raison de la suspension *</Label>
+   781→              <Textarea
+   782→                id="suspend-reason"
+   783→                placeholder="Ex: Non-paiement de l'abonnement..."
+   784→                value={suspendReason}
+   785→                onChange={(e) => setSuspendReason(e.target.value)}
+   786→                rows={3}
+   787→              />
+   788→            </div>
+   789→          </div>
+   790→          <DialogFooter>
+   791→            <Button variant="outline" onClick={() => setSuspendOpen(false)}>
+   792→              Annuler
+   793→            </Button>
+   794→            <Button
+   795→              variant="destructive"
+   796→              disabled={suspendLoading || !suspendReason.trim()}
+   797→              onClick={handleSuspend}
+   798→            >
+   799→              {suspendLoading ? "Suspension..." : "Suspendre"}
+   800→            </Button>
+   801→          </DialogFooter>
+   802→        </DialogContent>
+   803→      </Dialog>
+   804→
+   805→      {/* ─── Delete AlertDialog ─── */}
+   806→      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+   807→        <AlertDialogContent>
+   808→          <AlertDialogHeader>
+   809→            <AlertDialogTitle>Supprimer {deleteTarget?.name} ?</AlertDialogTitle>
+   810→            <AlertDialogDescription>
+   811→              Cette action est irréversible. Toutes les données associées
+   812→              (utilisateurs, bus, trajets, factures, abonnements) seront
+   813→              définitivement supprimées.
+   814→            </AlertDialogDescription>
+   815→          </AlertDialogHeader>
+   816→          <AlertDialogFooter>
+   817→            <AlertDialogCancel disabled={deleteLoading}>
+   818→              Annuler
+   819→            </AlertDialogCancel>
+   820→            <AlertDialogAction
+   821→              onClick={handleDelete}
+   822→              disabled={deleteLoading}
+   823→              className="bg-destructive text-white hover:bg-destructive/90"
+   824→            >
+   825→              {deleteLoading ? "Suppression..." : "Supprimer définitivement"}
+   826→            </AlertDialogAction>
+   827→          </AlertDialogFooter>
+   828→        </AlertDialogContent>
+   829→      </AlertDialog>
+   830→
+   831→      {/* ─── Create Tenant Dialog ─── */}
+   832→      <Dialog
+   833→        open={createOpen}
+   834→        onOpenChange={(open) => {
+   835→          if (!open) {
+   836→            setCreateOpen(false);
+   837→            fetchTenants();
+   838→          }
+   839→        }}
+   840→      >
+   841→        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+   842→          <DialogHeader>
+   843→            <DialogTitle>Créer une entreprise</DialogTitle>
+   844→          </DialogHeader>
+   845→          <form
+   846→            className="space-y-4"
+   847→            onSubmit={async (e) => {
+   848→              e.preventDefault();
+   849→              setCreateLoading(true);
+   850→              try {
+   851→                const res = await fetch("/api/superadmin/tenants", {
+   852→                  method: "POST",
+   853→                  headers: { "Content-Type": "application/json" },
+   854→                  body: JSON.stringify(createForm),
+   855→                });
+   856→                if (!res.ok) {
+   857→                  const err = await res.json();
+   858→                  toast.error(err.error || "Erreur lors de la création");
+   859→                  return;
+   860→                }
+   861→                const data = await res.json();
+   862→                setCredentials({
+   863→                  email: data.adminEmail,
+   864→                  password: data.generatedPassword,
+   865→                });
+   866→                setCreateOpen(false);
+   867→                setCredentialsOpen(true);
+   868→                toast.success("Entreprise créée avec succès !");
+   869→                fetchTenants();
+   870→              } catch {
+   871→                toast.error("Erreur lors de la création");
+   872→              } finally {
+   873→                setCreateLoading(false);
+   874→              }
+   875→            }}
+   876→          >
+   877→            <div className="space-y-2">
+   878→              <Label htmlFor="create-name">Nom de la compagnie *</Label>
+   879→              <Input
+   880→                id="create-name"
+   881→                required
+   882→                value={createForm.name}
+   883→                onChange={(e) => {
+   884→                  setCreateForm((f) => ({ ...f, name: e.target.value }));
+   885→                  if (!slugManuallyEdited.current) {
+   886→                    const slug = e.target.value
+   887→                      .toLowerCase()
+   888→                      .normalize("NFD")
+   889→                      .replace(/[\u0300-\u036f]/g, "")
+   890→                      .replace(/[^a-z0-9]+/g, "-")
+   891→                      .replace(/(^-|-$)/g, "");
+   892→                    setCreateForm((f) => ({ ...f, slug }));
+   893→                  }
+   894→                }}
+   895→              />
+   896→            </div>
+   897→            <div className="space-y-2">
+   898→              <Label htmlFor="create-slug">Slug *</Label>
+   899→              <Input
+   900→                id="create-slug"
+   901→                required
+   902→                value={createForm.slug}
+   903→                onChange={(e) => {
+   904→                  slugManuallyEdited.current = true;
+   905→                  setCreateForm((f) => ({ ...f, slug: e.target.value }));
+   906→                }}
+   907→              />
+   908→              <p className="text-xs text-muted-foreground">
+   909→                Identifiant unique (ex: dakar-express)
+   910→              </p>
+   911→            </div>
+   912→            <div className="space-y-2">
+   913→              <Label htmlFor="create-admin-name">
+   914→                Nom de l&apos;administrateur *
+   915→              </Label>
+   916→              <Input
+   917→                id="create-admin-name"
+   918→                required
+   919→                value={createForm.adminName}
+   920→                onChange={(e) =>
+   921→                  setCreateForm((f) => ({ ...f, adminName: e.target.value }))
+   922→                }
+   923→              />
+   924→            </div>
+   925→            <div className="space-y-2">
+   926→              <Label htmlFor="create-admin-email">Email admin *</Label>
+   927→              <Input
+   928→                id="create-admin-email"
+   929→                type="email"
+   930→                required
+   931→                value={createForm.adminEmail}
+   932→                onChange={(e) =>
+   933→                  setCreateForm((f) => ({ ...f, adminEmail: e.target.value }))
+   934→                }
+   935→              />
+   936→            </div>
+   937→            <div className="space-y-2">
+   938→              <Label htmlFor="create-admin-phone">Téléphone admin *</Label>
+   939→              <Input
+   940→                id="create-admin-phone"
+   941→                required
+   942→                value={createForm.adminPhone}
+   943→                onChange={(e) =>
+   944→                  setCreateForm((f) => ({ ...f, adminPhone: e.target.value }))
+   945→                }
+   946→              />
+   947→            </div>
+   948→            <div className="space-y-2">
+   949→              <Label htmlFor="create-plan">Plan</Label>
+   950→              <Select
+   951→                value={createForm.plan}
+   952→                onValueChange={(v) =>
+   953→                  setCreateForm((f) => ({ ...f, plan: v }))
+   954→                }
+   955→              >
+   956→                <SelectTrigger id="create-plan">
+   957→                  <SelectValue />
+   958→                </SelectTrigger>
+   959→                <SelectContent>
+   960→                  <SelectItem value="starter">Starter</SelectItem>
+   961→                  <SelectItem value="pro">Pro</SelectItem>
+   962→                  <SelectItem value="enterprise">Enterprise</SelectItem>
+   963→                </SelectContent>
+   964→              </Select>
+   965→            </div>
+   966→            <div className="space-y-2">
+   967→              <Label htmlFor="create-country">Pays</Label>
+   968→              <Input
+   969→                id="create-country"
+   970→                value={createForm.country}
+   971→                onChange={(e) =>
+   972→                  setCreateForm((f) => ({ ...f, country: e.target.value }))
+   973→                }
+   974→              />
+   975→            </div>
+   976→            <DialogFooter>
+   977→              <Button
+   978→                type="button"
+   979→                variant="outline"
+   980→                onClick={() => setCreateOpen(false)}
+   981→              >
+   982→                Annuler
+   983→              </Button>
+   984→              <Button type="submit" disabled={createLoading}>
+   985→                {createLoading ? "Création..." : "Créer"}
+   986→              </Button>
+   987→            </DialogFooter>
+   988→          </form>
+   989→        </DialogContent>
+   990→      </Dialog>
+   991→
+   992→      {/* ─── Credentials Dialog ─── */}
+   993→      <Dialog open={credentialsOpen} onOpenChange={setCredentialsOpen}>
+   994→        <DialogContent>
+   995→          <DialogHeader>
+   996→            <DialogTitle className="flex items-center gap-2">
+   997→              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+   998→              Entreprise créée avec succès !
+   999→            </DialogTitle>
+  1000→          </DialogHeader>
+  1001→          {credentials && (
+  1002→            <div className="space-y-4">
+  1003→              <div className="rounded-lg border p-4 bg-muted/50 space-y-3">
+  1004→                <div>
+  1005→                  <p className="text-xs text-muted-foreground">Email</p>
+  1006→                  <p className="font-mono text-sm font-medium">
+  1007→                    {credentials.email}
+  1008→                  </p>
+  1009→                </div>
+  1010→                <div>
+  1011→                  <p className="text-xs text-muted-foreground">Mot de passe</p>
+  1012→                  <p className="font-mono text-sm font-medium">
+  1013→                    {credentials.password}
+  1014→                  </p>
+  1015→                </div>
+  1016→              </div>
+  1017→              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+  1018→                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+  1019→                <p>
+  1020→                  Partagez ces identifiants avec l&apos;administrateur. Ce mot
+  1021→                  de passe ne sera plus affiché.
+  1022→                </p>
+  1023→              </div>
+  1024→              <Button
+  1025→                variant="outline"
+  1026→                className="w-full"
+  1027→                onClick={() => {
+  1028→                  navigator.clipboard.writeText(
+  1029→                    `Email: ${credentials.email}\nMot de passe: ${credentials.password}`,
+  1030→                  );
+  1031→                  toast.success("Identifiants copiés dans le presse-papiers");
+  1032→                }}
+  1033→              >
+  1034→                Copier les identifiants
+  1035→              </Button>
+  1036→            </div>
+  1037→          )}
+  1038→          <DialogFooter>
+  1039→            <Button onClick={() => setCredentialsOpen(false)}>Fermer</Button>
+  1040→          </DialogFooter>
+  1041→        </DialogContent>
+  1042→      </Dialog>
+  1043→    </div>
+  1044→  );
+  1045→}
+  1046→
+  1047→/* ─── Helpers ─── */
+  1048→
+  1049→function generatePageNumbers(
+  1050→  current: number,
+  1051→  total: number,
+  1052→): (number | "ellipsis")[] {
+  1053→  if (total <= 7) return Array.from({ length: total }, (_, i) => i);
+  1054→
+  1055→  const pages: (number | "ellipsis")[] = [0];
+  1056→
+  1057→  if (current > 2) pages.push("ellipsis");
+  1058→
+  1059→  const start = Math.max(1, current - 1);
+  1060→  const end = Math.min(total - 2, current + 1);
+  1061→
+  1062→  for (let i = start; i <= end; i++) pages.push(i);
+  1063→
+  1064→  if (current < total - 3) pages.push("ellipsis");
+  1065→
+  1066→  pages.push(total - 1);
+  1067→  return pages;
+  1068→}

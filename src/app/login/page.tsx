@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
 import { Bus, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,23 +22,21 @@ const errorMessages: Record<string, string> = {
   server: "Erreur serveur",
 };
 
-export default function LoginPage() {
-  const searchParams = useSearchParams();
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Read error from URL ?error= param (set by server redirect)
   useEffect(() => {
-    const err = searchParams.get("error");
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get("error");
     if (err) {
       setError(errorMessages[err] || "Erreur de connexion");
-      // Clean URL
       window.history.replaceState({}, "", "/login");
     }
-  }, [searchParams]);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -179,5 +176,13 @@ export default function LoginPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

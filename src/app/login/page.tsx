@@ -30,6 +30,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const callbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
+
       const result = await signIn("credentials", {
         email,
         password,
@@ -44,18 +46,22 @@ export default function LoginPage() {
         const session = await res.json();
         const role = session?.user?.role;
 
-        switch (role) {
-          case "superadmin":
-            router.push("/superadmin");
-            break;
-          case "admin":
-            router.push("/admin");
-            break;
-          case "agent":
-            router.push("/agent");
-            break;
-          default:
-            router.push("/client");
+        if (callbackUrl) {
+          router.push(callbackUrl);
+        } else {
+          switch (role) {
+            case "superadmin":
+              router.push("/superadmin");
+              break;
+            case "admin":
+              router.push("/admin");
+              break;
+            case "agent":
+              router.push("/agent");
+              break;
+            default:
+              router.push("/client");
+          }
         }
       }
     } catch {

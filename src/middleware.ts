@@ -19,7 +19,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/logo") ||
     pathname.startsWith("/manifest") ||
     pathname.startsWith("/sw") ||
-    pathname.startsWith("/api/superadmin") === false && pathname.startsWith("/api") && !pathname.startsWith("/api/superadmin")
+    (pathname.startsWith("/api") && !pathname.startsWith("/api/superadmin"))
   ) {
     return NextResponse.next();
   }

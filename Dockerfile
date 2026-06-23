@@ -19,8 +19,11 @@ RUN npx prisma generate
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-ENV DATABASE_URL=file:/app/db/custom.db
-RUN bun run build
+ENV DATABASE_URL="file:/app/db/custom.db"
+
+RUN npx next build
+RUN cp -r .next/static .next/standalone/.next/
+RUN cp -r public .next/standalone/
 
 # Create data directory
 RUN mkdir -p /app/db
@@ -29,7 +32,7 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
-ENV DATABASE_URL=file:/app/db/custom.db
+ENV DATABASE_URL="file:/app/db/custom.db"
 
 # Start command - init DB and start server
-CMD ["sh", "-c", "mkdir -p /app/db && export DATABASE_URL=file:/app/db/custom.db && npx prisma db push --skip-generate 2>/dev/null || true && exec node .next/standalone/server.js"]
+CMD ["sh", "-c", "mkdir -p /app/db && DATABASE_URL=file:/app/db/custom.db npx prisma db push --skip-generate 2>/dev/null || true && exec node .next/standalone/server.js"]

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Bus, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,51 +15,42 @@ const demoAccounts = [
   { email: "client@demo.com", password: "Demo1234!", role: "Client", color: "bg-sky-100 text-sky-800" },
 ];
 
+const errorMessages: Record<string, string> = {
+  missing: "Email et mot de passe requis",
+  notfound: "Utilisateur non trouvé",
+  disabled: "Compte désactivé",
+  wrong: "Mot de passe incorrect",
+  server: "Erreur serveur",
+};
+
 export default function LoginPage() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const getRedirectUrl = (role?: string) => {
-    switch (role) {
-      case "superadmin": return "/superadmin";
-      case "admin": return "/admin";
-      case "agent": return "/agent";
-      default: return "/client";
+  // Read error from URL ?error= param (set by server redirect)
+  useEffect(() => {
+    const err = searchParams.get("error");
+    if (err) {
+      setError(errorMessages[err] || "Erreur de connexion");
+      // Clean URL
+      window.history.replaceState({}, "", "/login");
     }
-  };
+  }, [searchParams]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    try {
-      const callbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
-
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || data.error) {
-        setError(data.error || "Erreur de connexion");
-        return;
-      }
-
-      // Redirect based on role returned by API
-      const dest = callbackUrl || getRedirectUrl(data.user.role);
-      window.location.href = dest;
-    } catch {
-      setError("Une erreur est survenue");
-    } finally {
-      setLoading(false);
-    }
+    // Submit form natively to /api/login — server sets cookie + redirects
+    const form = e.currentTarget;
+    form.action = "/api/login";
+    form.method = "POST";
+    form.submit();
   };
 
   const handleQuickLogin = (account: (typeof demoAccounts)[number]) => {
@@ -80,7 +72,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Login Form */}
+        {/* Login Form — native POST to /api/login, server handles cookie + redirect */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Connexion</CardTitle>
@@ -100,6 +92,7 @@ export default function LoginPage() {
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
                   placeholder="vous@exemple.com"
                   value={email}
@@ -114,6 +107,7 @@ export default function LoginPage() {
                 <div className="relative">
                   <Input
                     id="password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Votre mot de passe"
                     value={password}

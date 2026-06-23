@@ -5,12 +5,38 @@ import { db } from "@/lib/db";
 
 const SECRET = process.env.NEXTAUTH_SECRET || "busgo-superadmin-secret-change-me-2024";
 
+function getRedirectUrl(role: string): string {
+  switch (role) {
+    case "superadmin": return "/superadmin";
+    case "admin": return "/admin";
+    case "agent": return "/agent";
+    default: return "/client";
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { email, password } = body;
+    // Support both JSON body and form data
+    let email: string | null = null;
+    let password: string | null = null;
+
+    const contentType = request.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      const body = await request.json();
+      email = body.email;
+      password = body.password;
+    } else {
+      const formData = await request.formData();
+      email = formData.get("email") as string;
+      password = formData.get("password") as string;
+    }
 
     if (!email || !password) {
+      // For form submissions, redirect back to login with error
+      if (!contentType.includes("application/json")) {
+        return NextResponse.redirect(new URL("/login?error=missing", request.url));
+      }
       return NextResponse.json({ error: "Email et mot de passe requis" }, { status: 400 });
     }
 
@@ -20,20 +46,30 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
+      if (!contentType.includes("application/json")) {
+        return NextResponse.redirect(new URL("/login?error=notfound", request.url));
+      }
       return NextResponse.json({ error: "Utilisateur non trouvé" }, { status: 401 });
     }
 
     if (!user.isActive) {
+      if (!contentType.includes("application/json")) {
+        return NextResponse.redirect(new URL("/login?error=disabled", request.url));
+      }
       return NextResponse.json({ error: "Compte désactivé" }, { status: 403 });
     }
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
+      if (!contentType.includes("application/json")) {
+        return NextResponse.redirect(new URL("/login?error=wrong", request.url));
+      }
       return NextResponse.json({ error: "Mot de passe incorrect" }, { status: 401 });
     }
 
-    // Create JWT token (same structure as NextAuth)
-    const tokenPayload = {
+    // Create JWT token
+    const secret = new TextEncoder().encode(SECRET);
+    const token = await new SignJWT({
       sub: user.id,
       email: user.email,
       name: user.name,
@@ -41,42 +77,31 @@ export async function POST(request: NextRequest) {
       tenantId: user.tenantId ?? null,
       tenantSlug: user.tenant?.slug ?? null,
       tenantName: user.tenant?.name ?? null,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days
-    };
-
-    const secret = new TextEncoder().encode(SECRET);
-    const token = await new SignJWT(tokenPayload)
+    })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime("30d")
       .sign(secret);
 
-    // Set cookie directly
-    const response = NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        tenantId: user.tenantId,
-        tenantSlug: user.tenant?.slug,
-        tenantName: user.tenant?.name,
-      },
+    // Determine redirect destination
+    const redirectUrl = getRedirectUrl(user.role);
+
+    // Return 302 redirect with Set-Cookie header (browser handles everything natively)
+    const response = NextResponse.redirect(new URL(redirectUrl, request.url), {
+      status: 302,
     });
 
     response.cookies.set("next-auth.session-token", token, {
       httpOnly: true,
       sameSite: "lax",
       path: "/",
-      maxAge: 30 * 24 * 60 * 60, // 30 days
+      maxAge: 30 * 24 * 60 * 60,
       secure: false,
     });
 
     return response;
   } catch (error) {
     console.error("Login error:", error);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    return NextResponse.redirect(new URL("/login?error=server", request.url));
   }
 }

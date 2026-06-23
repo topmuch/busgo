@@ -12,7 +12,10 @@ const io = new Server(httpServer, {
   pingInterval: 25000,
 });
 
-// Types for Bus Go events
+// ═══════════════════════════════════════════════════════════
+// Types
+// ═══════════════════════════════════════════════════════════
+
 interface BusLocationUpdate {
   busId: string;
   tenantId: string;
@@ -46,7 +49,46 @@ interface NotificationEvent {
   data?: Record<string, unknown>;
 }
 
-// Room management - tenants have their own rooms
+// ═══════════════════════════════════════════════════════════
+// Vocal Alert Types — emitted to trajet rooms for TTS
+// ═══════════════════════════════════════════════════════════
+
+interface VocalPassagerManquant {
+  trajetId: string;
+  tenantId: string;
+  billetId: string;
+  seatNumber: number;
+  clientName?: string;
+  clientPhone?: string;
+}
+
+interface VocalTimerEvent {
+  trajetId: string;
+  tenantId: string;
+  missingCount: number;
+  missingList?: string[];
+}
+
+interface VocalMessageRetard {
+  trajetId: string;
+  tenantId: string;
+  clientId: string;
+  clientName?: string;
+  seatNumber?: number;
+  minutes: number;
+}
+
+interface VocalDepartConfirme {
+  trajetId: string;
+  tenantId: string;
+  boardedCount: number;
+  missingCount: number;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Room management + event routing
+// ═══════════════════════════════════════════════════════════
+
 io.on("connection", (socket) => {
   console.log(`Bus Go client connected: ${socket.id}`);
 
@@ -68,7 +110,7 @@ io.on("connection", (socket) => {
     console.log(`Socket ${socket.id} joined trajet room: ${trajetId}`);
   });
 
-  // Bus location update - broadcast to tenant room
+  // ─── Bus location ─────────────────────────────────────
   socket.on(
     "bus-location",
     (data: BusLocationUpdate) => {
@@ -79,16 +121,29 @@ io.on("connection", (socket) => {
     }
   );
 
-  // Trajet status update - broadcast to tenant + trajet room
+  // ─── Trajet status update ─────────────────────────────
   socket.on(
     "trajet-status",
     (data: TrajetStatusUpdate) => {
       io.to(`tenant:${data.tenantId}`).emit("trajet-status-update", data);
       io.to(`trajet:${data.trajetId}`).emit("trajet-status-update", data);
+
+      // Emit vocal event for confirmed departure
+      if (data.status === "departed") {
+        // The caller can also use "vocal:depart-confirme" with explicit counts
+        // For now, we emit a basic depart event from trajet status
+        io.to(`trajet:${data.trajetId}`).emit("depart:confirme", {
+          trajetId: data.trajetId,
+          tenantId: data.tenantId,
+          boardedCount: 0,  // caller should use vocal:depart-confirme for counts
+          missingCount: 0,
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
   );
 
-  // Billet scan event - broadcast to tenant + trajet room
+  // ─── Billet scan ──────────────────────────────────────
   socket.on(
     "billet-scan",
     (data: BilletScanEvent) => {
@@ -98,10 +153,21 @@ io.on("connection", (socket) => {
       };
       io.to(`tenant:${data.tenantId}`).emit("billet-scan-update", event);
       io.to(`trajet:${data.trajetId}`).emit("billet-scan-update", event);
+
+      // If marked absent → emit vocal alert
+      if (data.status === "absent") {
+        io.to(`trajet:${data.trajetId}`).emit("passager:manquant", {
+          trajetId: data.trajetId,
+          tenantId: data.tenantId,
+          billetId: data.billetId,
+          seatNumber: data.seatNumber,
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
   );
 
-  // Send notification to tenant room
+  // ─── Notification ─────────────────────────────────────
   socket.on(
     "notify",
     (data: NotificationEvent) => {
@@ -113,20 +179,113 @@ io.on("connection", (socket) => {
     }
   );
 
-  // Client delay/retard notification
+  // ─── Client delay/retard ──────────────────────────────
   socket.on(
     "client-retard",
-    (data: { trajetId: string; tenantId: string; clientId: string; minutes: number; message?: string; driverId: string }) => {
+    (data: { trajetId: string; tenantId: string; clientId: string; clientName?: string; seatNumber?: number; minutes: number; message?: string; driverId: string }) => {
       const retardMsg = data.message || `Le passager sera en retard de ${data.minutes} minutes`;
-      // Notify the driver directly
+
+      // Notify the driver via driver-retard event (existing)
       io.to(`tenant:${data.tenantId}`).emit("driver-retard", {
         trajetId: data.trajetId,
         clientId: data.clientId,
+        clientName: data.clientName,
         minutes: data.minutes,
         message: retardMsg,
         timestamp: new Date().toISOString(),
       });
-      console.log(`Retard notification: trajet=${data.trajetId}, ${data.minutes}min, driver notified`);
+
+      // ALSO emit vocal alert for TTS on agent side
+      io.to(`trajet:${data.trajetId}`).emit("message:retard", {
+        trajetId: data.trajetId,
+        tenantId: data.tenantId,
+        clientId: data.clientId,
+        clientName: data.clientName,
+        seatNumber: data.seatNumber,
+        minutes: data.minutes,
+        timestamp: new Date().toISOString(),
+      });
+
+      console.log(`Retard: trajet=${data.trajetId}, ${data.minutes}min, vocal+driver notified`);
+    }
+  );
+
+  // ═══════════════════════════════════════════════════════
+  // VOCAL ALERT EVENTS — explicit server-side triggers
+  // These allow the API backend to trigger TTS on agents
+  // ═══════════════════════════════════════════════════════
+
+  // Missing passenger vocal alert
+  socket.on(
+    "vocal:passager-manquant",
+    (data: VocalPassagerManquant) => {
+      io.to(`trajet:${data.trajetId}`).emit("passager:manquant", {
+        ...data,
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`Vocal alert: passager manquant, trajet=${data.trajetId}, seat=${data.seatNumber}`);
+    }
+  );
+
+  // T-5 minutes timer vocal alert
+  socket.on(
+    "vocal:timer-5min",
+    (data: VocalTimerEvent) => {
+      io.to(`trajet:${data.trajetId}`).emit("timer:5min", {
+        ...data,
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`Vocal alert: timer 5min, trajet=${data.trajetId}`);
+    }
+  );
+
+  // T-2 minutes timer vocal alert
+  socket.on(
+    "vocal:timer-2min",
+    (data: VocalTimerEvent) => {
+      io.to(`trajet:${data.trajetId}`).emit("timer:2min", {
+        ...data,
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`Vocal alert: timer 2min, trajet=${data.trajetId}`);
+    }
+  );
+
+  // Message retard vocal alert (explicit trigger, in addition to auto from client-retard)
+  socket.on(
+    "vocal:message-retard",
+    (data: VocalMessageRetard) => {
+      io.to(`trajet:${data.trajetId}`).emit("message:retard", {
+        ...data,
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`Vocal alert: message retard, trajet=${data.trajetId}`);
+    }
+  );
+
+  // Depart confirmed vocal alert (explicit trigger with boarding counts)
+  socket.on(
+    "vocal:depart-confirme",
+    (data: VocalDepartConfirme) => {
+      io.to(`trajet:${data.trajetId}`).emit("depart:confirme", {
+        ...data,
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`Vocal alert: depart confirme, trajet=${data.trajetId}`);
+    }
+  );
+
+  // ─── Agent reply to client ────────────────────────────
+  socket.on(
+    "agent-reply",
+    (data: { trajetId: string; clientId: string; message: string; tenantId?: string }) => {
+      // Forward reply to tenant room (client will pick it up)
+      if (data.tenantId) {
+        io.to(`tenant:${data.tenantId}`).emit("agent-reply", {
+          ...data,
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
   );
 

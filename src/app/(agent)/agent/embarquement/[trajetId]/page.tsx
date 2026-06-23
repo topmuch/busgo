@@ -23,7 +23,9 @@ import {
   RetardNotifications,
   RetardNotification,
 } from "@/components/agent/retard-notifications";
+import { VocalSettingsPanel } from "@/components/agent/vocal-settings-panel";
 import { useBusGoSocket } from "@/hooks/use-bus-go-socket";
+import { useVocalAlerts } from "@/hooks/use-vocal-alerts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -92,6 +94,9 @@ export default function EmbarquementPage() {
     trajetStatuses,
   } = useBusGoSocket(session?.user?.tenantId);
 
+  /* ---------- vocal alerts ---------- */
+  const vocal = useVocalAlerts(socketRef);
+
   /* ================================================================ */
   /*  Fetch trajet                                                     */
   /* ================================================================ */
@@ -135,7 +140,7 @@ export default function EmbarquementPage() {
       .filter((r) => r.trajetId === trajetId)
       .map((r, i) => ({
         ...r,
-        id: r.id || `retard-${i}-${r.timestamp}`,
+        id: `retard-${i}-${r.timestamp}`,
         clientName: r.clientName || "Passager",
         message: r.message || `Arrive dans ${r.minutes} min`,
       }));
@@ -416,9 +421,21 @@ export default function EmbarquementPage() {
               <span className="text-xs text-muted-foreground">
                 {capacity} places
               </span>
+              {/* Vocal Settings — in header for quick access */}
+              <VocalSettingsPanel
+                config={vocal.config}
+                ttsAvailable={vocal.ttsAvailable}
+                isSpeaking={vocal.isSpeaking}
+                availableVoices={vocal.availableVoices}
+                onUpdateConfig={vocal.updateConfig}
+                onToggleAlert={vocal.toggleAlert}
+                onTestAlert={vocal.testAlert}
+                onStopSpeaking={vocal.stopSpeaking}
+                onInitForceSound={vocal.initForceSound}
+              />
               <Badge
                 variant="outline"
-                className="text-[10px] h-5 px-1.5 ml-auto shrink-0"
+                className="text-[10px] h-5 px-1.5 shrink-0"
               >
                 {statusLabel[trajet.status] || trajet.status}
               </Badge>

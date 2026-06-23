@@ -1,8 +1,54 @@
-// Bus Go Agent Service Worker — Offline-First + Push with Sound
-const CACHE_NAME = "busgo-agent-v2";
-const STATIC_ASSETS = ["/agent/trajets", "/agent"];
+// ═══════════════════════════════════════════════════════════════════
+// Bus Go Agent Service Worker v3 — Offline-First + Push with Sound
+// ═══════════════════════════════════════════════════════════════════
+const CACHE_NAME = "busgo-agent-v3";
+const STATIC_ASSETS = [
+  "/agent/trajets",
+  "/agent",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/sounds/notification-company.mp3",
+];
 
-// Install: pre-cache shell
+// ═══════════════════════════════════════════════════════════
+// SOUND MAP — type-based notification sounds (0 FCFA)
+// ═══════════════════════════════════════════════════════════
+const SOUND_MAP = {
+  "passager:manquant":  "/sounds/notification-company.mp3",
+  "timer:5min":         "/sounds/notification-company.mp3",
+  "timer:2min":         "/sounds/notification-company.mp3",
+  "message:retard":     "/sounds/notification-company.mp3",
+  "depart:confirme":    "/sounds/notification-company.mp3",
+  "system":             "/sounds/notification-company.mp3",
+};
+
+// ═══════════════════════════════════════════════════════════
+// VIBRATION PATTERNS — distinct per alert type
+// ═══════════════════════════════════════════════════════════
+const VIBRATION_MAP = {
+  "passager:manquant":  [200, 100, 200, 100, 400],  // urgent triple
+  "timer:5min":         [300, 150, 300],              // double pulse
+  "timer:2min":         [500, 100, 500, 100, 500],   // triple long — critical
+  "message:retard":     [200, 200],                   // single soft
+  "depart:confirme":    [100, 50, 100, 50, 100, 50, 300], // cheerful staccato
+  "system":             [200, 100, 200],              // default double
+};
+
+// ═══════════════════════════════════════════════════════════
+// ICON MAP — badge icon per type
+// ═══════════════════════════════════════════════════════════
+const ICON_MAP = {
+  "passager:manquant":  "/icons/icon-192.png",
+  "timer:5min":         "/icons/icon-192.png",
+  "timer:2min":         "/icons/icon-192.png",
+  "message:retard":     "/icons/icon-192.png",
+  "depart:confirme":    "/icons/icon-192.png",
+  "system":             "/icons/icon-192.png",
+};
+
+// ═══════════════════════════════════════════════════════════
+// Install — pre-cache shell + sound assets
+// ═══════════════════════════════════════════════════════════
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
@@ -10,19 +56,25 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// Activate: clean old caches
+// ═══════════════════════════════════════════════════════════
+// Activate — clean old caches (v1, v2)
+// ═══════════════════════════════════════════════════════════
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys
+          .filter((key) => key !== CACHE_NAME)
+          .map((key) => caches.delete(key))
       )
     )
   );
   self.clients.claim();
 });
 
-// Fetch: network-first for API, cache-first for static
+// ═══════════════════════════════════════════════════════════
+// Fetch — network-first for API, cache-first for static + sounds
+// ═══════════════════════════════════════════════════════════
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -51,7 +103,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets: cache-first (including sounds)
+  // Static assets + sounds: cache-first (pre-cached on install)
   if (
     request.method === "GET" &&
     (url.pathname.startsWith("/_next/") ||
@@ -90,17 +142,23 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() =>
-          caches.match(request).then((cached) => cached || caches.match("/agent/trajets"))
+          caches.match(request).then(
+            (cached) => cached || caches.match("/agent/trajets")
+          )
         )
     );
     return;
   }
 
   // Default: network-first
-  event.respondWith(fetch(request).catch(() => caches.match(request)));
+  event.respondWith(
+    fetch(request).catch(() => caches.match(request))
+  );
 });
 
-// Handle sync events for offline scan queue
+// ═══════════════════════════════════════════════════════════
+// Background Sync — offline scan queue
+// ═══════════════════════════════════════════════════════════
 self.addEventListener("sync", (event) => {
   if (event.tag === "sync-scans") {
     event.waitUntil(syncOfflineScans());
@@ -113,23 +171,32 @@ async function syncOfflineScans() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// PUSH — Audio statique + vibration personnalisée
+// PUSH — Type-based sound + vibration + TTS actions
+//
+// Stratégie vocale 0 FCFA :
+//   (A) Audio statique MP3 dans la push → fonctionne écran verrouillé
+//   (B) TTS dynamique via "Écouter" ou auto-TTS si fenêtre visible
 // ═══════════════════════════════════════════════════════════
 self.addEventListener("push", (event) => {
   const data = event.data?.json() || {};
+  const type = data.type || "system";
   const title = data.title || "Bus Go Agent";
+  const sound = SOUND_MAP[type] || SOUND_MAP["system"];
+  const vibrate = VIBRATION_MAP[type] || VIBRATION_MAP["system"];
 
   const options = {
     body: data.body || data.message || "Nouvelle alerte",
-    icon: "/icons/icon-192.png",
+    icon: ICON_MAP[type] || "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
-    tag: "busgo-agent-notification",
-    requireInteraction: true,
+    tag: "busgo-agent-" + type,  // per-type tag: last one replaces
+    requireInteraction: type === "timer:2min" || type === "passager:manquant",
+    renotify: true,
 
-    // AUDIO STATIQUE — Fonctionne écran verrouillé
-    sound: "/sounds/notification-company.mp3",
-    vibrate: [300, 100, 300],
+    // (A) AUDIO STATIQUE — Fonctionne écran verrouillé
+    sound: sound,
+    vibrate: vibrate,
 
+    // Actions
     actions: [
       { action: "listen", title: "\uD83D\uDD0A \u00C9couter" },
       { action: "dismiss", title: "Fermer" },
@@ -137,9 +204,11 @@ self.addEventListener("push", (event) => {
 
     data: {
       url: data.url || "/agent/trajets",
-      type: data.type || "system",
+      type: type,
       trajetId: data.trajetId || "",
       ttsMessage: data.ttsMessage || data.body || data.message || "",
+      autoTTS: data.autoTTS !== false,  // default: auto-TTS if window visible
+      timestamp: data.timestamp || Date.now(),
     },
   };
 
@@ -147,28 +216,34 @@ self.addEventListener("push", (event) => {
 });
 
 // ═══════════════════════════════════════════════════════════
-// NOTIFICATION CLICK — TTS signal ou navigation simple
+// NOTIFICATION CLICK — Smart routing:
+//   "Écouter" → TTS au client focusé (ou auto-TTS si visible)
+//   body click → focus/ouvrir la page agent + auto-TTS si visible
 // ═══════════════════════════════════════════════════════════
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const data = event.notification.data || {};
   const action = event.action;
+  const url = data.url || "/agent/trajets";
 
-  // "Écouter" → envoie signal TTS au client focusé
+  // "Écouter" → force TTS signal to client
   if (action === "listen") {
     event.waitUntil(
-      self.clients.matchAll({ type: "window" }).then((clients) => {
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+        // Try to find an agent window and send TTS_SPEAK
         for (const client of clients) {
           if (client.url.includes("/agent/") && "focus" in client) {
             client.postMessage({
               type: "TTS_SPEAK",
               message: data.ttsMessage || "",
+              alertType: data.type || "system",
+              forced: true,  // user explicitly clicked "Écouter"
             });
             return client.focus();
           }
         }
-        // Pas de fenêtre ouverte → ouvrir avec paramètre TTS
-        const ttsUrl = `${data.url}?tts=1&ttsMessage=${encodeURIComponent(data.ttsMessage || "")}`;
+        // No agent window open → open with TTS query param
+        const ttsUrl = `${url}?tts=1&alertType=${encodeURIComponent(data.type || "")}&ttsMessage=${encodeURIComponent(data.ttsMessage || "")}`;
         return self.clients.openWindow(ttsUrl);
       })
     );
@@ -177,12 +252,20 @@ self.addEventListener("notificationclick", (event) => {
 
   if (action === "dismiss") return;
 
-  // Clic sur le corps → ouvre/focus la page agent
-  const url = data.url || "/agent/trajets";
+  // Body click → focus agent page + send auto-TTS if configured
   event.waitUntil(
-    self.clients.matchAll({ type: "window" }).then((clients) => {
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
         if (client.url.includes("/agent/") && "focus" in client) {
+          // Auto-TTS: if window is visible and autoTTS is enabled
+          if (data.autoTTS && data.ttsMessage) {
+            client.postMessage({
+              type: "TTS_SPEAK",
+              message: data.ttsMessage,
+              alertType: data.type || "system",
+              forced: false,
+            });
+          }
           return client.focus();
         }
       }

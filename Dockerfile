@@ -1,64 +1,34 @@
-# ─── Bus Go — Coolify Dockerfile ───
-# Multi-stage build pour Next.js 16 standalone + Prisma + SQLite
+# Bus Go - Dockerfile for Coolify
+FROM node:20-alpine
 
-# ── Stage 1: Dependencies ──
-FROM oven/bun:1-alpine AS deps
+# Install required packages
+RUN apk add --no-cache git libc6-compat sqlite
+RUN npm install -g bun
+
 WORKDIR /app
 
-COPY package.json bun.lock* package-lock.json* ./
-RUN bun install --frozen-lockfile --production=false
+# Clone the repository
+RUN git clone https://github.com/topmuch/busgo.git .
 
-# ── Stage 2: Build ──
-FROM oven/bun:1-alpine AS builder
-WORKDIR /app
+# Install dependencies
+RUN bun install
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# Generate Prisma Client
+RUN npx prisma generate
 
-# Generate Prisma client
-RUN bunx prisma generate
-
-# Build Next.js (standalone output)
+# Build the application
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV DATABASE_URL=file:/app/db/custom.db
 RUN bun run build
 
-# ── Stage 3: Production ──
-FROM oven/bun:1-alpine AS runner
-WORKDIR /app
-
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-
-# Install sqlite3 for prisma db push at runtime
-RUN apk add --no-cache sqlite
-
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
-
-# Copy standalone output
-COPY --from=builder /app/.next/standalone ./
-
-# Copy static assets (public + .next/static)
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/static ./.next/static
-
-# Copy Prisma schema + engine for runtime migrations
-COPY --from=builder /app/prisma ./prisma
-COPY --from=deps /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=deps /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=deps /app/node_modules/prisma ./node_modules/prisma
-
-# Copy entrypoint
-COPY --chown=nextjs:nodejs docker-entrypoint.sh /app/docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
-
-# Ensure db directory exists for SQLite
-RUN mkdir -p /app/db && chown -R nextjs:nodejs /app
-
-USER nextjs
+# Create data directory
+RUN mkdir -p /app/db
 
 EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+ENV DATABASE_URL=file:/app/db/custom.db
 
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+# Start command - init DB and start server
+CMD sh -c "mkdir -p /app/db && export DATABASE_URL=file:/app/db/custom.db && npx prisma db push --skip-generate 2>/dev/null || true && exec node .next/standalone/server.js"

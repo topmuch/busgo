@@ -44,7 +44,7 @@ const faqItems = [
 
 export function FAQ() {
   return (
-    <section id="faq" className="bg-gray-50 py-20 md:py-28">
+    <section id="faq" className="bg-muted/50 py-20 md:py-28">
       <div className="mx-auto max-w-7xl px-4">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -53,7 +53,7 @@ export function FAQ() {
           transition={{ delay: 0, duration: 0.5, ease: "easeOut" }}
           className="text-center"
         >
-          <h2 className="text-3xl font-bold md:text-4xl">
+          <h2 className="text-3xl font-bold md:text-4xl text-foreground">
             Questions fréquentes
           </h2>
         </motion.div>
@@ -68,18 +68,18 @@ export function FAQ() {
           <Accordion
             type="single"
             collapsible
-            className="rounded-xl border bg-white"
+            className="rounded-xl border bg-card border-border"
           >
             {faqItems.map((item, index) => (
               <AccordionItem
                 key={index}
                 value={`item-${index}`}
-                className="px-6 transition-colors hover:bg-gray-50 last:border-b-0"
+                className="px-6 transition-colors hover:bg-muted/50 last:border-b-0"
               >
-                <AccordionTrigger className="py-5 text-left text-base font-medium">
+                <AccordionTrigger className="py-5 text-left text-base font-medium text-foreground">
                   {item.question}
                 </AccordionTrigger>
-                <AccordionContent className="text-sm leading-relaxed text-gray-600">
+                <AccordionContent className="text-sm leading-relaxed text-muted-foreground">
                   {item.answer}
                 </AccordionContent>
               </AccordionItem>

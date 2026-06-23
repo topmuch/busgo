@@ -55,12 +55,12 @@ function StatItem({ target, suffix = "", prefix = "", label, formatNumber, inVie
 
   return (
     <div className="text-center">
-      <div className="text-4xl md:text-5xl font-bold text-white">
+      <div className="text-4xl md:text-5xl font-bold text-primary-foreground">
         {prefix}
         {display}
         {suffix}
       </div>
-      <div className="text-blue-100 text-sm mt-2">{label}</div>
+      <div className="text-primary-foreground/70 text-sm mt-2">{label}</div>
     </div>
   );
 }
@@ -98,7 +98,7 @@ export function StatsBar() {
   const inView = useInView(ref, { once: true, margin: "-100px" });
 
   return (
-    <section id="stats" className="py-16 bg-blue-600">
+    <section id="stats" className="py-16 bg-gradient-to-r from-violet-700 via-purple-700 to-fuchsia-700">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8">
         <motion.div
           ref={ref}

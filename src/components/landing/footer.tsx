@@ -42,7 +42,7 @@ export function Footer() {
           {/* Col 1 - Bus Go */}
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2">
-              <Bus className="h-6 w-6 text-orange-500" />
+              <Bus className="h-6 w-6 text-fuchsia-400" />
               <span className="text-lg font-bold">Bus Go</span>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-gray-400">

@@ -11,8 +11,8 @@ const testimonials = [
     quote:
       "Depuis qu'on utilise Bus Go, notre taux d'embarquement est passé de 82% à 91%. On économise 500 000 FCFA par mois en récupérant les places des absents. L'outil a transformé notre façon de travailler.",
     badges: [
-      { label: "91% embarquement", color: "bg-green-50 text-green-700" },
-      { label: "500K FCFA/mois", color: "bg-blue-50 text-blue-700" },
+      { label: "91% embarquement", color: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" },
+      { label: "500K FCFA/mois", color: "bg-primary/10 text-primary" },
     ],
   },
   {
@@ -23,8 +23,8 @@ const testimonials = [
     quote:
       "15 bus équipés en 2 jours. Nos agents ont adopté l'outil immédiatement, même ceux qui n'avaient jamais utilisé de smartphone. 98% de satisfaction chez nos agents.",
     badges: [
-      { label: "15 bus", color: "bg-green-50 text-green-700" },
-      { label: "98% satisfaction", color: "bg-blue-50 text-blue-700" },
+      { label: "15 bus", color: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" },
+      { label: "98% satisfaction", color: "bg-primary/10 text-primary" },
     ],
   },
   {
@@ -35,19 +35,18 @@ const testimonials = [
     quote:
       "Le score de fiabilité et les codes promo automatiques ont fait exploser notre taux de retour client. On est passé de 60% à 91% de taux de retour. 2 millions FCFA de CA récupéré.",
     badges: [
-      { label: "31% retour", color: "bg-green-50 text-green-700" },
-      { label: "2M FCFA CA", color: "bg-blue-50 text-blue-700" },
+      { label: "31% retour", color: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" },
+      { label: "2M FCFA CA", color: "bg-primary/10 text-primary" },
     ],
   },
 ];
 
 export function Testimonials() {
-
   return (
-    <section id="temoignages" className="py-20 md:py-28 bg-gray-50">
+    <section id="temoignages" className="py-20 md:py-28 bg-muted/50">
       <div className="mx-auto max-w-[1280px] px-4">
         <div className="text-center mb-12 md:mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold">
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground">
             Ils nous font confiance
           </h2>
         </div>
@@ -61,7 +60,7 @@ export function Testimonials() {
           {testimonials.map((testimonial) => (
             <motion.div
               key={testimonial.name}
-              className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border hover:shadow-lg transition-shadow duration-300"
+              className="bg-card rounded-2xl p-6 md:p-8 shadow-sm border border-border hover:shadow-lg transition-shadow duration-300"
             >
               {/* Avatar */}
               <div
@@ -73,14 +72,14 @@ export function Testimonials() {
               </div>
 
               {/* Name & Role */}
-              <h3 className="mt-4 font-semibold">{testimonial.name}</h3>
-              <p className="text-sm text-gray-500">{testimonial.role}</p>
+              <h3 className="mt-4 font-semibold text-foreground">{testimonial.name}</h3>
+              <p className="text-sm text-muted-foreground">{testimonial.role}</p>
 
               {/* Stars */}
               <div className="text-amber-400 text-lg mt-3">⭐⭐⭐⭐⭐</div>
 
               {/* Quote */}
-              <p className="mt-4 text-gray-600 text-sm leading-relaxed">
+              <p className="mt-4 text-muted-foreground text-sm leading-relaxed">
                 &ldquo;{testimonial.quote}&rdquo;
               </p>
 

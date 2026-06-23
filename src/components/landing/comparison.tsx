@@ -13,10 +13,10 @@ const comparisons = [
 
 export function Comparison() {
   return (
-    <section id="avant-apres" className="py-20 md:py-28 bg-gray-50">
+    <section id="avant-apres" className="py-20 md:py-28 bg-muted/50">
       <div className="mx-auto max-w-[1280px] px-4">
         <div className="text-center mb-12 md:mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold">
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground">
             Avant Bus Go vs Après Bus Go
           </h2>
         </div>
@@ -31,11 +31,11 @@ export function Comparison() {
           {/* Headers */}
           <div className="grid grid-cols-[140px_1fr_auto_1fr] sm:grid-cols-[180px_1fr_auto_1fr] gap-2 sm:gap-4 items-center mb-4 px-4 sm:px-6">
             <div />
-            <div className="bg-red-50 text-red-700 rounded-lg px-4 py-2 text-center font-semibold text-sm">
+            <div className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg px-4 py-2 text-center font-semibold text-sm">
               Avant
             </div>
             <div />
-            <div className="bg-green-50 text-green-700 rounded-lg px-4 py-2 text-center font-semibold text-sm">
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg px-4 py-2 text-center font-semibold text-sm">
               Après Bus Go
             </div>
           </div>
@@ -49,17 +49,17 @@ export function Comparison() {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true, margin: "-50px" }}
                 transition={{ duration: 0.4, delay: i * 0.1, ease: "easeOut" }}
-                className="grid grid-cols-[140px_1fr_auto_1fr] sm:grid-cols-[180px_1fr_auto_1fr] gap-2 sm:gap-4 items-center bg-white rounded-xl border p-4 sm:p-5"
+                className="grid grid-cols-[140px_1fr_auto_1fr] sm:grid-cols-[180px_1fr_auto_1fr] gap-2 sm:gap-4 items-center bg-card rounded-xl border border-border p-4 sm:p-5"
               >
-                <span className="font-medium text-gray-700 text-sm">
+                <span className="font-medium text-foreground/80 text-sm">
                   {item.category}
                 </span>
-                <div className="flex items-center gap-2 text-red-600">
+                <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
                   <X className="h-4 w-4 shrink-0" />
                   <span className="text-sm">{item.avant}</span>
                 </div>
-                <ChevronRight className="h-4 w-4 text-gray-300 shrink-0" />
-                <div className="flex items-center gap-2 text-green-600">
+                <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
                   <Check className="h-4 w-4 shrink-0" />
                   <span className="text-sm font-medium">{item.apres}</span>
                 </div>

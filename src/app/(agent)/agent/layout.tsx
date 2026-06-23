@@ -1,18 +1,17 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { Bus, Ticket, ScanLine, LogOut, Bell, MapPin, LayoutDashboard } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Bus, Ticket, ScanLine, MapPin, LayoutDashboard } from "lucide-react";
+import { SharedClientHeader, SharedClientNav } from "@/components/shared-header";
 import { AgentPWAProvider } from "@/components/agent/pwa-provider";
+import Link from "next/link";
+
+const navItems = [
+  { href: "/agent", label: "Accueil", icon: LayoutDashboard },
+  { href: "/agent/trajets", label: "Trajets", icon: MapPin },
+  { href: "/agent/embarquement", label: "Embarquement", icon: ScanLine },
+  { href: "/agent/billets", label: "Billets", icon: Ticket },
+];
 
 export default async function AgentLayout({
   children,
@@ -29,19 +28,6 @@ export default async function AgentLayout({
   }
 
   const user = session.user;
-  const initials = user.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-
-  const navItems = [
-    { href: "/agent", label: "Accueil", icon: LayoutDashboard },
-    { href: "/agent/trajets", label: "Trajets", icon: MapPin },
-    { href: "/agent/embarquement", label: "Embarquement", icon: ScanLine },
-    { href: "/agent/billets", label: "Billets", icon: Ticket },
-  ];
 
   return (
     <AgentPWAProvider>
@@ -52,60 +38,26 @@ export default async function AgentLayout({
           <Link href="/agent" className="flex items-center gap-2 font-bold text-lg">
             <Bus className="h-5 w-5 text-primary" />
             <span>Bus Go</span>
-            <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-medium">
+            <span className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded font-medium">
               Agent
             </span>
           </Link>
 
-          <div className="ml-auto flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-4 w-4" />
-            </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-amber-600 text-white text-xs">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <div className="flex flex-col gap-1 p-2">
-                  <p className="text-sm font-medium">{user.name}</p>
-                  <p className="text-xs text-muted-foreground">{user.email}</p>
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/api/auth/signout" className="cursor-pointer">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Déconnexion
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <SharedClientHeader
+            user={{
+              name: user.name || "",
+              email: user.email || "",
+              role: user.role || "",
+            }}
+            avatarBg="bg-amber-600"
+          />
         </div>
       </header>
 
       <div className="flex-1 flex min-h-0">
         {/* Desktop sidebar */}
         <aside className="hidden md:flex w-56 flex-col border-r bg-muted/40 p-4">
-          <nav className="flex flex-col gap-1">
-            {navItems.map((item) => (
-              <Link key={item.href} href={item.href}>
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start gap-2 text-sm"
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Button>
-              </Link>
-            ))}
-          </nav>
+          <SharedClientNav navItems={navItems} />
         </aside>
 
         {/* Main content - with bottom padding for mobile nav */}

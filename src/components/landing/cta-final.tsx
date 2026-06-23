@@ -20,7 +20,7 @@ export function CTAFinal() {
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="mx-auto max-w-7xl px-4"
       >
-        <div className="rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-16 text-center text-white md:py-20">
+        <div className="rounded-2xl bg-gradient-to-r from-violet-700 via-purple-700 to-fuchsia-700 px-6 py-16 text-center text-primary-foreground md:py-20">
           <motion.h2
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -35,7 +35,7 @@ export function CTAFinal() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.15, duration: 0.6, ease: "easeOut" }}
-            className="mx-auto mt-4 max-w-2xl text-lg text-blue-100"
+            className="mx-auto mt-4 max-w-2xl text-lg text-primary-foreground/80"
           >
             Rejoignez les compagnies de bus qui optimisent leurs départs avec
             Bus Go. Inscription gratuite en 2 minutes.
@@ -49,7 +49,7 @@ export function CTAFinal() {
           >
             <Button
               size="lg"
-              className="bg-orange-500 text-lg font-bold text-white hover:bg-orange-600 hover:scale-105 transition-transform duration-200 px-8 py-4 rounded-xl"
+              className="bg-card text-primary text-lg font-bold hover:bg-primary-foreground/10 hover:scale-105 transition-transform duration-200 px-8 py-4 rounded-xl"
             >
               Créer mon compte gratuit
               <ArrowRight className="ml-2 h-5 w-5" />
@@ -63,7 +63,7 @@ export function CTAFinal() {
             className="mt-6 flex flex-wrap justify-center gap-4"
           >
             {trustBadges.map((badge) => (
-              <span key={badge} className="text-sm text-blue-200">
+              <span key={badge} className="text-sm text-primary-foreground/60">
                 {badge}
               </span>
             ))}

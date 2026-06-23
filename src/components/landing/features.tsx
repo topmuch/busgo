@@ -16,48 +16,48 @@ const features = [
     title: "PWA Mobile Offline-first",
     description:
       "Fonctionne même sans réseau. L'agent peut scanner les billets, marquer les absents et gérer l'embarquement dans les zones à faible connectivité.",
-    bg: "bg-blue-50",
-    color: "text-blue-600",
+    bg: "bg-primary/10",
+    color: "text-primary",
   },
   {
     icon: LayoutGrid,
     title: "Gestion d'embarquement",
     description:
       "5 états de siège en temps réel : libre, vendu, embarqué, en retard, absent. Plan du bus interactif avec vue d'ensemble instantanée.",
-    bg: "bg-green-50",
-    color: "text-green-600",
+    bg: "bg-emerald-50 dark:bg-emerald-900/20",
+    color: "text-emerald-600 dark:text-emerald-400",
   },
   {
     icon: PhoneCall,
     title: "Appel des retardataires",
     description:
       "Lien direct agent ↔ passager. Le passager signale son retard, l'agent décide d'attendre ou de partir. Communication humaine, pas un robot.",
-    bg: "bg-purple-50",
-    color: "text-purple-600",
+    bg: "bg-violet-100 dark:bg-violet-900/30",
+    color: "text-violet-600 dark:text-violet-400",
   },
   {
     icon: Gift,
     title: "Codes promo automatiques",
     description:
       "10% de réduction automatique pour chaque passager manquant. Fidélisez au lieu de punir. Augmentez le taux de retour de 31%.",
-    bg: "bg-rose-50",
-    color: "text-rose-600",
+    bg: "bg-rose-100 dark:bg-rose-900/30",
+    color: "text-rose-600 dark:text-rose-400",
   },
   {
     icon: Monitor,
     title: "Écrans TV temps réel",
     description:
       "Affichez les départs en temps réel sur des écrans dans la gare. Annonces vocales automatiques. Les passagers savent où aller.",
-    bg: "bg-amber-50",
-    color: "text-amber-600",
+    bg: "bg-amber-100 dark:bg-amber-900/30",
+    color: "text-amber-600 dark:text-amber-400",
   },
   {
     icon: BarChart3,
     title: "Rapports & analytics",
     description:
       "Rapports PDF automatiques après chaque départ. ROI calculé en temps réel. Score de fiabilité par passager.",
-    bg: "bg-sky-50",
-    color: "text-sky-600",
+    bg: "bg-sky-50 dark:bg-sky-900/20",
+    color: "text-sky-600 dark:text-sky-400",
   },
 ];
 
@@ -67,10 +67,10 @@ export function Features() {
     <section id="fonctionnalites" className="py-20 md:py-28">
       <div className="mx-auto max-w-[1280px] px-4">
         <div className="text-center mb-12 md:mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold">
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground">
             Tout ce dont vous avez besoin
           </h2>
-          <p className="mt-3 text-gray-500">
+          <p className="mt-3 text-muted-foreground">
             Une suite complète d&apos;outils pour optimiser chaque départ
           </p>
         </div>
@@ -84,15 +84,15 @@ export function Features() {
           {features.map((feature) => (
             <motion.div
               key={feature.title}
-              className="bg-white border rounded-2xl p-6 hover:shadow-lg hover:scale-[1.02] transition-all duration-300"
+              className="bg-card border border-border rounded-2xl p-6 hover:shadow-lg hover:scale-[1.02] transition-all duration-300"
             >
               <div
                 className={`flex h-12 w-12 items-center justify-center rounded-xl ${feature.bg}`}
               >
                 <feature.icon className={`h-6 w-6 ${feature.color}`} />
               </div>
-              <h3 className="mt-4 font-semibold text-lg">{feature.title}</h3>
-              <p className="mt-2 text-gray-500 text-sm leading-relaxed">
+              <h3 className="mt-4 font-semibold text-lg text-foreground">{feature.title}</h3>
+              <p className="mt-2 text-muted-foreground text-sm leading-relaxed">
                 {feature.description}
               </p>
             </motion.div>

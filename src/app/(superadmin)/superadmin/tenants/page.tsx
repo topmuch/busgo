@@ -80,7 +80,7 @@ import {
   Trash2,
   ShieldOff,
   ShieldCheck,
-  UserSwitch,
+  UserCog,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -523,7 +523,7 @@ export default function TenantsPage() {
                   onClick={() => handleImpersonate(tenant)}
                   disabled={impersonateLoading === tenant.id}
                 >
-                  <UserSwitch className="h-4 w-4" />
+                  <UserCog className="h-4 w-4" />
                   {impersonateLoading === tenant.id ? "Connexion..." : "Usurper l'identité"}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

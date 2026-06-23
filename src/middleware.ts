@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-const publicPaths = ["/login", "/api/auth", "/api/login", "/api/debug"];
-const cookieNames = ["next-auth.session-token", "__Secure-next-auth.session-token"];
+const publicPaths = ["/login", "/api/auth", "/api/login", "/api/debug", "/api/test-login"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -20,7 +19,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/logo") ||
     pathname.startsWith("/manifest") ||
     pathname.startsWith("/sw") ||
-    (pathname.startsWith("/api") && !pathname.startsWith("/api/superadmin"))
+    pathname.startsWith("/api")
   ) {
     return NextResponse.next();
   }
@@ -46,14 +45,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Get JWT token (check both cookie names)
+  // Get JWT token - check all possible cookie names
+  const cookieNames = [
+    "next-auth.session-token",
+    "__Secure-next-auth.session-token",
+  ];
   let token: string | undefined;
   for (const name of cookieNames) {
-    token = request.cookies.get(name)?.value;
-    if (token) break;
+    const val = request.cookies.get(name)?.value;
+    if (val) {
+      token = val;
+      break;
+    }
   }
+
   if (!token) {
-    const loginUrl = new URL("/login", request.url);
+    // Redirect to login using forwarded headers (NOT request.url which is 0.0.0.0)
+    const loginUrl = buildPublicUrl(request, "/login");
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
@@ -63,27 +71,46 @@ export async function middleware(request: NextRequest) {
       process.env.NEXTAUTH_SECRET || "busgo-superadmin-secret-change-me-2024"
     );
     const { payload } = await jwtVerify(token, secret);
-    // Custom API token puts role at top level, NextAuth puts it in payload.token.role
-    const p = (payload as Record<string, unknown>);
-    const inner = p.token as Record<string, unknown> | undefined;
-    const role = inner?.role || p.role;
 
-    if (!role || !requiredRoles.includes(role as string)) {
-      // If user is authenticated but wrong role, redirect to unauthorized or login
+    // Custom API token: role at top level. NextAuth: role in payload.token.role
+    const p = payload as Record<string, unknown>;
+    const inner = p.token as Record<string, unknown> | undefined;
+    const role = (inner?.role || p.role) as string | undefined;
+
+    if (!role || !requiredRoles.includes(role)) {
       if (role) {
-        return NextResponse.redirect(new URL("/login", request.url));
+        return NextResponse.redirect(buildPublicUrl(request, "/login"));
       }
-      const loginUrl = new URL("/login", request.url);
+      const loginUrl = buildPublicUrl(request, "/login");
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
     }
 
     return NextResponse.next();
   } catch {
-    const loginUrl = new URL("/login", request.url);
+    // JWT verification failed (wrong secret, expired, etc.)
+    const loginUrl = buildPublicUrl(request, "/login");
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
+}
+
+/**
+ * Build a public URL using proxy headers instead of request.url
+ * request.url contains 0.0.0.0:3000 which is invalid for browser redirects
+ */
+function buildPublicUrl(request: NextRequest, path: string): URL {
+  const proto = request.headers.get("x-forwarded-proto") || "https";
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
+  if (host && host !== "0.0.0.0:3000") {
+    return new URL(`${proto}://${host}${path}`);
+  }
+  // Fallback: try NEXTAUTH_URL
+  if (process.env.NEXTAUTH_URL && process.env.NEXTAUTH_URL !== "http://localhost:3000") {
+    return new URL(`${process.env.NEXTAUTH_URL.replace(/\/$/, "")}${path}`);
+  }
+  // Last resort
+  return new URL(path, request.url);
 }
 
 export const config = {

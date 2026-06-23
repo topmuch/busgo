@@ -1,0 +1,47 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.*
+.yarn
+
+# Build output
+.next
+/out
+/build
+dist
+
+# Database (persisted via volume)
+db/*.db
+db/*.db-journal
+db/*.db-wal
+db/*.db-shm
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Misc
+.DS_Store
+*.pem
+*.log
+coverage
+claude
+.z-ai-config
+.claude
+skills
+tool-results
+examples
+scripts
+*.tsbuildinfo
+next-env.d.ts
+test
+prompt

@@ -3,6 +3,9 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
 const publicPaths = ["/login", "/api/auth"];
+const cookieName = process.env.NODE_ENV === "production"
+  ? "__Secure-next-auth.session-token"
+  : "next-auth.session-token";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -46,7 +49,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Get JWT token
-  const token = request.cookies.get("next-auth.session-token")?.value;
+  const token = request.cookies.get(cookieName)?.value;
   if (!token) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);

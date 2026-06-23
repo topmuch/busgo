@@ -24,6 +24,15 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const getRedirectUrl = (role?: string) => {
+    switch (role) {
+      case "superadmin": return "/superadmin";
+      case "admin": return "/admin";
+      case "agent": return "/agent";
+      default: return "/client";
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -32,38 +41,34 @@ export default function LoginPage() {
     try {
       const callbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
 
+      // First try to get role before signing in (for quick login buttons)
+      // Just sign in with redirect - NextAuth handles the cookie
       const result = await signIn("credentials", {
         email,
         password,
+        callbackUrl: callbackUrl || undefined,
         redirect: false,
       });
 
       if (result?.error) {
         setError(result.error);
-      } else {
-        // Redirect based on role - fetch session first
+        return;
+      }
+
+      // Fetch session to determine role-based redirect
+      for (let i = 0; i < 3; i++) {
         const res = await fetch("/api/auth/session");
         const session = await res.json();
-        const role = session?.user?.role;
-
-        if (callbackUrl) {
-          router.push(callbackUrl);
-        } else {
-          switch (role) {
-            case "superadmin":
-              router.push("/superadmin");
-              break;
-            case "admin":
-              router.push("/admin");
-              break;
-            case "agent":
-              router.push("/agent");
-              break;
-            default:
-              router.push("/client");
-          }
+        if (session?.user?.role) {
+          const dest = callbackUrl || getRedirectUrl(session.user.role);
+          window.location.href = dest;
+          return;
         }
+        await new Promise(r => setTimeout(r, 300));
       }
+
+      // Fallback: redirect to superadmin if no role found
+      window.location.href = callbackUrl || "/superadmin";
     } catch {
       setError("Une erreur est survenue");
     } finally {

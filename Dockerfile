@@ -9,9 +9,8 @@ WORKDIR /app
 # Clone the repository
 RUN git clone https://github.com/topmuch/busgo.git .
 
-# Install dependencies
-RUN npm install -g bun
-RUN bun install
+# Install dependencies (npm is more stable than bun on Alpine for Docker builds)
+RUN npm install
 
 # Generate Prisma Client
 RUN npx prisma generate

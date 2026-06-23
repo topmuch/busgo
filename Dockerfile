@@ -22,6 +22,8 @@ COPY scripts/seed-superadmin.cjs /app/.next/standalone/scripts/
 RUN cp -r node_modules/.prisma /app/.next/standalone/node_modules/.prisma
 RUN cp -r node_modules/@prisma /app/.next/standalone/node_modules/@prisma
 RUN cp -r node_modules/bcryptjs /app/.next/standalone/node_modules/bcryptjs
+RUN cp -r node_modules/jose /app/.next/standalone/node_modules/jose
+RUN cp -r node_modules/next-auth /app/.next/standalone/node_modules/next-auth
 
 # ====== STAGE 2: Production (minimal) ======
 FROM node:20-alpine
@@ -39,4 +41,6 @@ ENV HOSTNAME="0.0.0.0"
 ENV DATABASE_URL="file:/app/db/custom.db"
 ENV NODE_ENV="production"
 
-CMD ["sh", "-c", "mkdir -p /app/db && DATABASE_URL=file:/app/db/custom.db npx prisma db push --skip-generate 2>/dev/null || true && node /app/scripts/seed-superadmin.cjs 2>/dev/null || true && exec node server.js"]
+COPY scripts/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+ENTRYPOINT ["/app/entrypoint.sh"]

@@ -5,7 +5,18 @@ import { db } from "@/lib/db";
 
 const SECRET = process.env.NEXTAUTH_SECRET || "busgo-superadmin-secret-change-me-2024";
 
-function getRedirectUrl(role: string): string {
+function getBaseUrl(request: NextRequest): string {
+  // Use NEXTAUTH_URL if set (correct public URL in Coolify)
+  if (process.env.NEXTAUTH_URL) {
+    return process.env.NEXTAUTH_URL.replace(/\/$/, "");
+  }
+  // Fallback: reconstruct from forwarded headers
+  const proto = request.headers.get("x-forwarded-proto") || "https";
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000";
+  return `${proto}://${host}`;
+}
+
+function getRedirectPath(role: string): string {
   switch (role) {
     case "superadmin": return "/superadmin";
     case "admin": return "/admin";
@@ -15,8 +26,9 @@ function getRedirectUrl(role: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  const baseUrl = getBaseUrl(request);
+
   try {
-    // Support both JSON body and form data
     let email: string | null = null;
     let password: string | null = null;
 
@@ -33,11 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!email || !password) {
-      // For form submissions, redirect back to login with error
-      if (!contentType.includes("application/json")) {
-        return NextResponse.redirect(new URL("/login?error=missing", request.url));
-      }
-      return NextResponse.json({ error: "Email et mot de passe requis" }, { status: 400 });
+      return NextResponse.redirect(`${baseUrl}/login?error=missing`);
     }
 
     const user = await db.user.findUnique({
@@ -46,25 +54,16 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      if (!contentType.includes("application/json")) {
-        return NextResponse.redirect(new URL("/login?error=notfound", request.url));
-      }
-      return NextResponse.json({ error: "Utilisateur non trouvé" }, { status: 401 });
+      return NextResponse.redirect(`${baseUrl}/login?error=notfound`);
     }
 
     if (!user.isActive) {
-      if (!contentType.includes("application/json")) {
-        return NextResponse.redirect(new URL("/login?error=disabled", request.url));
-      }
-      return NextResponse.json({ error: "Compte désactivé" }, { status: 403 });
+      return NextResponse.redirect(`${baseUrl}/login?error=disabled`);
     }
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
-      if (!contentType.includes("application/json")) {
-        return NextResponse.redirect(new URL("/login?error=wrong", request.url));
-      }
-      return NextResponse.json({ error: "Mot de passe incorrect" }, { status: 401 });
+      return NextResponse.redirect(`${baseUrl}/login?error=wrong`);
     }
 
     // Create JWT token
@@ -83,13 +82,10 @@ export async function POST(request: NextRequest) {
       .setExpirationTime("30d")
       .sign(secret);
 
-    // Determine redirect destination
-    const redirectUrl = getRedirectUrl(user.role);
+    // Redirect to role-based dashboard using the PUBLIC base URL
+    const redirectUrl = `${baseUrl}${getRedirectPath(user.role)}`;
 
-    // Return 302 redirect with Set-Cookie header (browser handles everything natively)
-    const response = NextResponse.redirect(new URL(redirectUrl, request.url), {
-      status: 302,
-    });
+    const response = NextResponse.redirect(redirectUrl, { status: 302 });
 
     response.cookies.set("next-auth.session-token", token, {
       httpOnly: true,
@@ -102,6 +98,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Login error:", error);
-    return NextResponse.redirect(new URL("/login?error=server", request.url));
+    return NextResponse.redirect(`${baseUrl}/login?error=server`);
   }
 }

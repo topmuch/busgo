@@ -12,11 +12,9 @@ import { jwtVerify } from "jose";
  *
  * NOUVEL ÉTAT (restauré)
  * ──────────────────────
- * Lit le cookie `next-auth.session-token`, décode et vérifie le JWT avec
- * `NEXTAUTH_SECRET` (via `jose.jwtVerify`). Si invalide ou absent, redirige
- * vers `/login?callbackUrl=...`. Si valide, laisse passer — le contrôle de
- * rôle par espace est délégué aux layouts Server Components via
- * `getServerSession()` (qui refait la même vérification).
+ * Lit le cookie `next-auth.session-token` (ou `__Secure-next-auth.session-token`
+ * en production HTTPS), décode et vérifie le JWT avec `NEXTAUTH_SECRET` (via
+ * `jose.jwtVerify`). Si invalide ou absent, redirige vers `/login?callbackUrl=...`.
  *
  * ROUTES PROTÉGÉES
  * ────────────────
@@ -27,7 +25,10 @@ import { jwtVerify } from "jose";
  *
  * /login n'est PAS protégé — la page doit rester accessible sans session.
  */
-const COOKIE_NAME = "next-auth.session-token";
+const COOKIE_NAMES =
+  process.env.NODE_ENV === "production"
+    ? ["__Secure-next-auth.session-token", "next-auth.session-token"]
+    : ["next-auth.session-token"];
 
 function getSecret(): Uint8Array {
   const secret =
@@ -47,7 +48,13 @@ async function verifySessionToken(token: string | undefined): Promise<boolean> {
 }
 
 export async function middleware(request: NextRequest) {
-  const token = request.cookies.get(COOKIE_NAME)?.value;
+  // Try both cookie names (production uses __Secure- prefix, dev uses bare name)
+  let token: string | undefined;
+  for (const name of COOKIE_NAMES) {
+    token = request.cookies.get(name)?.value;
+    if (token) break;
+  }
+
   const isValid = await verifySessionToken(token);
 
   if (!isValid) {

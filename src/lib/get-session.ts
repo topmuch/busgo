@@ -29,7 +29,10 @@ import type { Session } from "next-auth";
  *   if (session.user.role !== "superadmin") redirect("/unauthorized");
  */
 
-const COOKIE_NAME = "next-auth.session-token";
+const COOKIE_NAMES =
+  process.env.NODE_ENV === "production"
+    ? ["__Secure-next-auth.session-token", "next-auth.session-token"]
+    : ["next-auth.session-token"];
 
 function getSecret(): Uint8Array {
   const secret =
@@ -92,7 +95,12 @@ export async function verifyToken(
 export async function getServerSession(): Promise<AppSession | null> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
+    // Try both cookie names (production uses __Secure- prefix, dev uses bare name)
+    let token: string | undefined;
+    for (const name of COOKIE_NAMES) {
+      token = cookieStore.get(name)?.value;
+      if (token) break;
+    }
     if (!token) return null;
     return verifyToken(token);
   } catch {

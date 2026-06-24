@@ -95,14 +95,19 @@ export async function verifyToken(
 export async function getServerSession(): Promise<AppSession | null> {
   try {
     const cookieStore = await cookies();
-    // Try both cookie names (production uses __Secure- prefix, dev uses bare name)
-    let token: string | undefined;
+    // Iterate over ALL cookie names and return the FIRST VALID session.
+    // This handles the case where the browser has multiple session cookies
+    // (e.g. an old `__Secure-next-auth.session-token` from a previous NextAuth
+    // deployment + a fresh `next-auth.session-token` from /api/login). Without
+    // this, a stale invalid cookie would shadow the valid one and cause
+    // spurious redirects to /login.
     for (const name of COOKIE_NAMES) {
-      token = cookieStore.get(name)?.value;
-      if (token) break;
+      const token = cookieStore.get(name)?.value;
+      if (!token) continue;
+      const session = await verifyToken(token);
+      if (session) return session;
     }
-    if (!token) return null;
-    return verifyToken(token);
+    return null;
   } catch {
     // `cookies()` ne peut pas être appelé dans certains contextes (ex: middleware)
     // — utiliser `verifyToken()` directement dans ce cas.

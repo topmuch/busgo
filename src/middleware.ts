@@ -49,34 +49,37 @@ async function verifySessionToken(token: string | undefined): Promise<boolean> {
 }
 
 export async function middleware(request: NextRequest) {
-  // Find the first present session cookie (try bare name first — that's what
-  // /api/login sets now).
-  let token: string | undefined;
-  let tokenCookieName: string | undefined;
+  // Iterate over ALL cookie names. If ANY of them contains a valid JWT,
+  // we authorize the request. This handles the case where the browser has
+  // both a stale invalid `__Secure-next-auth.session-token` (from a previous
+  // NextAuth deployment) AND a fresh valid `next-auth.session-token` (from
+  // /api/login). Without this, the stale cookie would shadow the valid one.
+  let validToken = false;
+  const invalidCookieNames: string[] = [];
+
   for (const name of COOKIE_NAMES) {
-    const v = request.cookies.get(name)?.value;
-    if (v) {
-      token = v;
-      tokenCookieName = name;
-      break;
+    const token = request.cookies.get(name)?.value;
+    if (!token) continue;
+    if (await verifySessionToken(token)) {
+      validToken = true;
+      break; // Found a valid session, no need to check further
     }
+    invalidCookieNames.push(name);
   }
 
-  const isValid = await verifySessionToken(token);
-
-  if (!isValid) {
+  if (!validToken) {
     // Build the redirect response to /login
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
 
     const response = NextResponse.redirect(loginUrl);
 
-    // If an invalid cookie was present, DELETE it so the next login attempt
-    // starts from a clean state. Without this, the browser keeps sending
-    // the invalid cookie on every subsequent navigation, causing an infinite
+    // Delete ALL invalid session cookies so the next login attempt starts
+    // from a clean state. Without this, the browser keeps sending the
+    // invalid cookies on every subsequent navigation, causing an infinite
     // /login redirect loop even after a successful login.
-    if (tokenCookieName) {
-      response.cookies.set(tokenCookieName, "", {
+    for (const name of invalidCookieNames) {
+      response.cookies.set(name, "", {
         httpOnly: true,
         sameSite: "lax",
         path: "/",

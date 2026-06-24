@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
+import { validateBody } from "@/lib/api-validation";
+import { z } from "zod";
 
 const VALID_ACTIONS = ["start-boarding", "depart"] as const;
 const ACTION_STATUS_MAP: Record<string, string> = {
@@ -29,15 +31,14 @@ export async function POST(
 
     const { trajetId } = await params;
 
-    const body = await req.json();
+    const body = await validateBody(
+      req,
+      z.object({
+        action: z.enum(VALID_ACTIONS),
+      })
+    );
+    if (body instanceof NextResponse) return body;
     const { action } = body;
-
-    if (!action || !VALID_ACTIONS.includes(action)) {
-      return NextResponse.json(
-        { error: "Action invalide. Valeurs acceptées: start-boarding, depart" },
-        { status: 400 }
-      );
-    }
 
     // Find trajet and verify ownership
     const trajet = await db.trajet.findUnique({

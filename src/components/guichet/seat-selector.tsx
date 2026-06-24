@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 interface SeatSelectorProps {
@@ -83,7 +84,9 @@ export function SeatSelector({
         {/* Seat grid */}
         <div className="space-y-1.5">
           {Array.from({ length: rows }, (_, rowIdx) => {
-            const rowSeats = [];
+            // Use React.ReactNode[] (not default never[]) so .push() accepts
+            // both <div> and <button> elements without type errors.
+            const rowSeats: ReactNode[] = [];
             for (let col = 0; col < cols; col++) {
               const seatNum = rowIdx * cols + col + 1;
               if (seatNum > capacity) {

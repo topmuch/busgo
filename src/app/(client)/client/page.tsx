@@ -432,7 +432,7 @@ export default function ClientPage() {
         clientId: userId,
         minutes,
         message,
-        driverId: b.trajet.bus.driverId,
+        driverId: b.trajet.bus.driver?.id,
       });
 
       // Dispatch a toast

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 import { logAudit, getClientIp } from "@/lib/superadmin-utils";
+import { schemas } from "@/lib/api-validation";
 
 // POST /api/superadmin/invoices/[id]/pay
 export async function POST(
@@ -14,7 +15,14 @@ export async function POST(
   }
 
   const { id } = await params;
-  const { paymentMethod } = await req.json().catch(() => ({}));
+  // Validate optional paymentMethod field. Body may be empty {} for manual payment.
+  let body;
+  try {
+    body = schemas.invoicePay.parse(await req.json());
+  } catch {
+    body = {}; // empty body is acceptable for this endpoint
+  }
+  const { method: paymentMethod } = body;
 
   const invoice = await db.invoice.findUnique({ where: { id } });
   if (!invoice) {

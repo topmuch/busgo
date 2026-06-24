@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SignJWT } from "jose";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { validateBody, schemas } from "@/lib/api-validation";
 
 const SECRET = process.env.NEXTAUTH_SECRET || "busgo-superadmin-secret-change-me-2024";
 
@@ -16,27 +17,31 @@ function getRedirectPath(role: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    let email: string | null = null;
-    let password: string | null = null;
-
     const contentType = request.headers.get("content-type") || "";
 
+    // Support both JSON and form-encoded bodies.
+    // JSON path uses Zod validation; form path is used by the SSR login fallback.
+    let email: string;
+    let password: string;
+
     if (contentType.includes("application/json")) {
-      const body = await request.json();
+      const body = await validateBody(request, schemas.login);
+      if (body instanceof NextResponse) return body; // validation error
       email = body.email;
       password = body.password;
     } else {
       const formData = await request.formData();
-      email = formData.get("email") as string;
-      password = formData.get("password") as string;
+      email = (formData.get("email") as string) || "";
+      password = (formData.get("password") as string) || "";
+      if (!email || !password) {
+        return NextResponse.json({ error: "Email et mot de passe requis" }, { status: 400 });
+      }
     }
 
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email et mot de passe requis" }, { status: 400 });
-    }
+    const normalizedEmail = email.toLowerCase().trim();
 
     const user = await db.user.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { email: normalizedEmail },
       include: { tenant: true },
     });
 

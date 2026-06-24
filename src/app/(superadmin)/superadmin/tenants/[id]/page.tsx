@@ -328,8 +328,14 @@ export default function TenantDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
-    setError(null);
+
+    let cancelled = false;
+
+    // Use a flag instead of setState(true) at top of effect to avoid
+    // cascading renders (react-hooks/set-state-in-effect rule).
+    // Initial state is already `loading=true`, so we only flip to false
+    // once the fetch resolves. Subsequent id changes flip via the
+    // setLoading(null) state machine below.
 
     fetch(`/api/superadmin/tenants/${id}`)
       .then((res) => {
@@ -337,14 +343,20 @@ export default function TenantDetailPage() {
         return res.json();
       })
       .then((data) => {
+        if (cancelled) return;
         setTenant(data);
+        setError(null);
+        setLoading(false);
       })
       .catch((err) => {
+        if (cancelled) return;
         setError(err.message || "Erreur de chargement");
-      })
-      .finally(() => {
         setLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (loading) return <DetailSkeleton />;

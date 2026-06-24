@@ -14,12 +14,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { LucideIcon } from "lucide-react";
+import { iconMap, type IconName } from "@/lib/icon-map";
 
 interface NavItem {
   href: string;
   label: string;
-  icon: LucideIcon;
+  /** Icon name (string key into iconMap). See src/lib/icon-map.tsx. */
+  icon: IconName;
 }
 
 /**
@@ -105,6 +106,10 @@ export function SharedClientHeader({
 
 /**
  * SharedClientNav — Renders navigation items with active state detection.
+ *
+ * Icons are looked up by name via `iconMap` so that Server Component layouts
+ * can pass plain serializable data (string keys) instead of icon components
+ * (which are not allowed to cross the Server→Client boundary in React 19).
  */
 export function SharedClientNav({
   navItems,
@@ -117,20 +122,23 @@ export function SharedClientNav({
 
   return (
     <nav className={cn("flex flex-col gap-1", className)}>
-      {navItems.map((item) => (
-        <Link key={item.href} href={item.href}>
-          <Button
-            variant="ghost"
-            className={cn(
-              "w-full justify-start gap-2 text-sm",
-              pathname === item.href && "bg-accent text-accent-foreground font-medium"
-            )}
-          >
-            <item.icon className="h-4 w-4" />
-            {item.label}
-          </Button>
-        </Link>
-      ))}
+      {navItems.map((item) => {
+        const Icon = iconMap[item.icon];
+        return (
+          <Link key={item.href} href={item.href}>
+            <Button
+              variant="ghost"
+              className={cn(
+                "w-full justify-start gap-2 text-sm",
+                pathname === item.href && "bg-accent text-accent-foreground font-medium"
+              )}
+            >
+              {Icon && <Icon className="h-4 w-4" />}
+              {item.label}
+            </Button>
+          </Link>
+        );
+      })}
     </nav>
   );
 }

@@ -125,20 +125,28 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = await req.json();
+    const bodyRaw = await req.json();
 
-    const { name, slug, phone, email, country, adminName, adminEmail, adminPhone, plan } = body;
-
-    // Validate required fields
-    if (!name || !slug || !adminName || !adminEmail || !adminPhone) {
+    // Validate body against the local createTenantSchema (defined at top of file)
+    const parsed = createTenantSchema.safeParse(bodyRaw);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Les champs name, slug, adminName, adminEmail et adminPhone sont requis" },
+        { error: "Données invalides", details: parsed.error.issues },
         { status: 400 }
       );
     }
 
-    // Validate plan
-    const tenantPlan = (plan && ["starter", "pro", "enterprise"].includes(plan)) ? plan : "starter";
+    // Allow callers to pass either {adminName, adminEmail, adminPhone} OR {email, phone, name}
+    // for backward compat with existing superadmin UI.
+    const name = parsed.data.name;
+    const slug = bodyRaw.slug || generateSlug(name);
+    const adminName = bodyRaw.adminName || name;
+    const adminEmail = parsed.data.adminEmail;
+    const adminPhone = parsed.data.adminPhone;
+    const phone = bodyRaw.phone || adminPhone;
+    const email = bodyRaw.email || adminEmail;
+    const country = parsed.data.country;
+    const tenantPlan = parsed.data.plan;
 
     // Check slug uniqueness
     const slugExists = await db.tenant.findUnique({ where: { slug } });

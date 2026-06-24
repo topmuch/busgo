@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { FlashlightOff, Flashlight, Loader2 } from "lucide-react";
+import type { Html5Qrcode as Html5QrcodeType } from "html5-qrcode";
 import {
   Dialog,
   DialogContent,
@@ -44,7 +45,7 @@ export function QRScanner({
   isOpen,
   onClose,
 }: QRScannerProps) {
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<Html5QrcodeType | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [lastResult, setLastResult] = useState<{

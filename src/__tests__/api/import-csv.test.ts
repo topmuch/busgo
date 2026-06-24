@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/trajets/import-csv/route";
 
+import { NextRequest } from "next/server";
 import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 
@@ -24,7 +25,7 @@ describe("POST /api/trajets/import-csv", () => {
 
   it("returns 401 when not authenticated", async () => {
     vi.mocked(getServerSession).mockResolvedValue(null as never);
-    const req = new Request("http://localhost:3000/api/trajets/import-csv", {
+    const req = new NextRequest("http://localhost:3000/api/trajets/import-csv", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "t1",
@@ -36,7 +37,7 @@ describe("POST /api/trajets/import-csv", () => {
   });
 
   it("returns 400 when trajetId or passengers missing", async () => {
-    const req = new Request("http://localhost:3000/api/trajets/import-csv", {
+    const req = new NextRequest("http://localhost:3000/api/trajets/import-csv", {
       method: "POST",
       body: JSON.stringify({ trajetId: "t1" }),
     });
@@ -45,7 +46,7 @@ describe("POST /api/trajets/import-csv", () => {
   });
 
   it("returns 400 when passengers array is empty", async () => {
-    const req = new Request("http://localhost:3000/api/trajets/import-csv", {
+    const req = new NextRequest("http://localhost:3000/api/trajets/import-csv", {
       method: "POST",
       body: JSON.stringify({ trajetId: "t1", passengers: [] }),
     });
@@ -56,7 +57,7 @@ describe("POST /api/trajets/import-csv", () => {
   it("returns 404 when trajet not found", async () => {
     vi.mocked(db.trajet.findFirst).mockResolvedValue(null as never);
 
-    const req = new Request("http://localhost:3000/api/trajets/import-csv", {
+    const req = new NextRequest("http://localhost:3000/api/trajets/import-csv", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "nonexistent",
@@ -75,7 +76,7 @@ describe("POST /api/trajets/import-csv", () => {
     } as never);
     vi.mocked(db.billet.findMany).mockResolvedValue([] as never);
 
-    const req = new Request("http://localhost:3000/api/trajets/import-csv", {
+    const req = new NextRequest("http://localhost:3000/api/trajets/import-csv", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "trajet-1",
@@ -101,7 +102,7 @@ describe("POST /api/trajets/import-csv", () => {
     } as never);
     vi.mocked(db.billet.findMany).mockResolvedValue([] as never);
 
-    const req = new Request("http://localhost:3000/api/trajets/import-csv", {
+    const req = new NextRequest("http://localhost:3000/api/trajets/import-csv", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "trajet-1",
@@ -124,7 +125,7 @@ describe("POST /api/trajets/import-csv", () => {
     } as never);
     vi.mocked(db.billet.findMany).mockResolvedValue([] as never);
 
-    const req = new Request("http://localhost:3000/api/trajets/import-csv", {
+    const req = new NextRequest("http://localhost:3000/api/trajets/import-csv", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "trajet-1",
@@ -147,7 +148,7 @@ describe("POST /api/trajets/import-csv", () => {
     } as never);
     vi.mocked(db.billet.findMany).mockResolvedValue([{ seatNumber: 5 }] as never);
 
-    const req = new Request("http://localhost:3000/api/trajets/import-csv", {
+    const req = new NextRequest("http://localhost:3000/api/trajets/import-csv", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "trajet-1",
@@ -180,7 +181,7 @@ describe("POST /api/trajets/import-csv", () => {
       id: "billet-1",
     } as never);
 
-    const req = new Request("http://localhost:3000/api/trajets/import-csv", {
+    const req = new NextRequest("http://localhost:3000/api/trajets/import-csv", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "trajet-1",
@@ -229,7 +230,7 @@ describe("POST /api/trajets/import-csv", () => {
       id: createdBilletId,
     } as never);
 
-    const req = new Request("http://localhost:3000/api/trajets/import-csv", {
+    const req = new NextRequest("http://localhost:3000/api/trajets/import-csv", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "trajet-1",
@@ -259,7 +260,7 @@ describe("POST /api/trajets/import-csv", () => {
     vi.mocked(db.billet.create).mockResolvedValue({ id: "b1" } as never);
     vi.mocked(db.billet.update).mockResolvedValue({ id: "b1" } as never);
 
-    const req = new Request("http://localhost:3000/api/trajets/import-csv", {
+    const req = new NextRequest("http://localhost:3000/api/trajets/import-csv", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "trajet-1",

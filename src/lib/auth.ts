@@ -88,7 +88,9 @@ export const authOptions: NextAuthOptions = {
       },
     },
   },
-  trustHost: true,
+  // `trustHost` n'est pas une option AuthOptions valide en NextAuth v4.
+  // NextAuth v4 déduit automatiquement l'hôte depuis les headers de requête.
+  // Pour forcer un hôte en production, utiliser NEXTAUTH_URL env var.
 };
 
 declare module "next-auth" {

@@ -1,41 +1,36 @@
 import { getServerSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
-import {
-  BarChart3,
-  Building2,
-  CreditCard,
-  Settings,
-  Shield,
-  LineChart,
-  Menu,
-  FileText,
-} from "lucide-react";
+import { Shield, Menu } from "lucide-react";
 import { SharedClientHeader } from "@/components/shared-header";
 import { SuperAdminSidebar } from "@/components/superadmin-sidebar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { type IconName } from "@/lib/icon-map";
 import Link from "next/link";
 
-const navGroups = [
+// Icons are referenced by STRING NAME (not as components) so they can be
+// passed from this Server Component to the SuperAdminSidebar Client Component.
+// See src/lib/icon-map.tsx for the full registry.
+const navGroups: { label: string; items: { href: string; label: string; icon: IconName }[] }[] = [
   {
     label: "Principal",
     items: [
-      { href: "/superadmin", label: "Vue d'ensemble", icon: BarChart3 },
-      { href: "/superadmin/tenants", label: "Entreprises", icon: Building2 },
+      { href: "/superadmin", label: "Vue d'ensemble", icon: "BarChart3" },
+      { href: "/superadmin/tenants", label: "Entreprises", icon: "Building2" },
     ],
   },
   {
     label: "Finance",
     items: [
-      { href: "/superadmin/billing", label: "Facturation", icon: CreditCard },
-      { href: "/superadmin/analytics", label: "Analytique", icon: LineChart },
+      { href: "/superadmin/billing", label: "Facturation", icon: "CreditCard" },
+      { href: "/superadmin/analytics", label: "Analytique", icon: "LineChart" },
     ],
   },
   {
     label: "Système",
     items: [
-      { href: "/superadmin/settings", label: "Configuration", icon: Settings },
-      { href: "/superadmin/audit", label: "Journal d'audit", icon: FileText },
+      { href: "/superadmin/settings", label: "Configuration", icon: "Settings" },
+      { href: "/superadmin/audit", label: "Journal d'audit", icon: "FileText" },
     ],
   },
 ];

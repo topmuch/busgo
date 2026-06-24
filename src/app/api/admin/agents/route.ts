@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { validateBody, schemas } from "@/lib/api-validation";
 
 // GET agents list
 export async function GET() {
@@ -42,12 +43,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Tenant manquant" }, { status: 400 });
     }
 
-    const body = await req.json();
+    const body = await validateBody(req, schemas.agentCreate);
+    if (body instanceof NextResponse) return body;
     const { name, email, phone, password, role } = body;
-
-    if (!name || !email || !phone || !password) {
-      return NextResponse.json({ error: "Champs manquants" }, { status: 400 });
-    }
 
     const existing = await db.user.findUnique({ where: { email } });
     if (existing) {
@@ -59,7 +57,7 @@ export async function POST(req: NextRequest) {
       data: {
         name,
         email,
-        phone,
+        phone: phone ?? "",
         password: hash,
         role: role || "agent",
         tenantId,

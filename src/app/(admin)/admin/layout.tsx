@@ -1,10 +1,10 @@
 import { getServerSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
-import { Bus, Users, Ticket, LogOut, Bell, ScanLine, LayoutDashboard, Mic, FileBarChart2, Cog } from "lucide-react";
+import { Bus, Menu } from "lucide-react";
 import { SharedClientHeader, SharedClientNav } from "@/components/shared-header";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
+import type { IconName } from "@/lib/icon-map";
 
 export default async function AdminLayout({
   children,
@@ -19,16 +19,19 @@ export default async function AdminLayout({
 
   const user = session.user;
 
-  const navItems = [
-    { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/admin", label: "Vue d'ensemble", icon: Bus },
-    { href: "/admin/guichet", label: "Guichet", icon: ScanLine },
-    { href: "/admin/buses", label: "Bus", icon: Bus },
-    { href: "/admin/trajets", label: "Trajets", icon: Ticket },
-    { href: "/admin/voix", label: "Voix & Annonces", icon: Mic },
-    { href: "/admin/rapports", label: "Rapports", icon: FileBarChart2 },
-    { href: "/admin/settings", label: "Paramètres", icon: Cog },
-    { href: "/admin/users", label: "Utilisateurs", icon: Users },
+  // Icons are referenced by STRING NAME (not as components) so they can be
+  // passed from this Server Component to the SharedClientNav Client Component.
+  // See src/lib/icon-map.tsx for the full registry.
+  const navItems: { href: string; label: string; icon: IconName }[] = [
+    { href: "/admin/dashboard", label: "Dashboard", icon: "LayoutDashboard" },
+    { href: "/admin", label: "Vue d'ensemble", icon: "Bus" },
+    { href: "/admin/guichet", label: "Guichet", icon: "ScanLine" },
+    { href: "/admin/buses", label: "Bus", icon: "Bus" },
+    { href: "/admin/trajets", label: "Trajets", icon: "Ticket" },
+    { href: "/admin/voix", label: "Voix & Annonces", icon: "Mic" },
+    { href: "/admin/rapports", label: "Rapports", icon: "FileBarChart2" },
+    { href: "/admin/settings", label: "Paramètres", icon: "Cog" },
+    { href: "/admin/users", label: "Utilisateurs", icon: "Users" },
   ];
 
   return (

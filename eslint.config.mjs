@@ -42,9 +42,14 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "no-undef": "off",
     "no-unreachable": "off",
     "no-useless-escape": "off",
+
+    // Allow require() in CommonJS scripts (.cjs files used for tooling/seed).
+    // The next/typescript config flags require() as error by default, but our
+    // scripts/seed-superadmin.cjs is intentionally CommonJS for portability.
+    "@typescript-eslint/no-require-imports": "off",
   },
 }, {
-  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills"]
+  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", "scripts/seed-superadmin.cjs"]
 }];
 
 export default eslintConfig;

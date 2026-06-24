@@ -128,23 +128,19 @@ function playTone(
 // ═══════════════════════════════════════════════════════════
 
 export function useVocalAlerts(socketRef: React.RefObject<Socket | null>) {
-  const [config, setConfig] = useState<VocalConfig>(DEFAULT_CONFIG);
+  // Use lazy initializer to load config from localStorage ONCE at first render.
+  // This avoids the react-hooks/set-state-in-effect rule that would trigger
+  // if we loaded in a useEffect + setConfig.
+  const [config, setConfig] = useState<VocalConfig>(() => loadConfig());
   const [ttsAvailable, setTtsAvailable] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [lastSpoken, setLastSpoken] = useState<string>("");
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const configRef = useRef<VocalConfig>(DEFAULT_CONFIG);
+  const configRef = useRef<VocalConfig>(config);
   const audioContextRef = useRef<AudioContext | null>(null);
   const ttsCheckedRef = useRef(false);
   const dedupMapRef = useRef<Map<string, number>>(new Map()); // type → last timestamp
   const speakingRef = useRef(false);
-
-  // ── Load config from localStorage on mount ──────────────
-  useEffect(() => {
-    const loaded = loadConfig();
-    setConfig(loaded);
-    configRef.current = loaded;
-  }, []);
 
   // ── Check TTS availability (voices load async in some browsers) ─
   useEffect(() => {
@@ -180,6 +176,11 @@ export function useVocalAlerts(socketRef: React.RefObject<Socket | null>) {
   }, [ttsAvailable, config.enabled]);
 
   // ── Listen for TTS_SPEAK messages from Service Worker ───
+  // Use a ref so the effect closure always calls the latest `speak` without
+  // re-subscribing on every render. This avoids the react-hooks/immutability
+  // violation where `speak` was accessed before its declaration.
+  const speakRef = useRef<((text: string) => void) | null>(null);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -189,15 +190,15 @@ export function useVocalAlerts(socketRef: React.RefObject<Socket | null>) {
         // If forced (user clicked "Écouter"), always speak
         // If not forced, respect autoTTS setting and page visibility
         const shouldSpeak = event.data.forced || (cfg.autoTTS && document.visibilityState === "visible");
-        if (shouldSpeak) {
-          speak(event.data.message);
+        if (shouldSpeak && speakRef.current) {
+          speakRef.current(event.data.message);
         }
       }
     };
 
     navigator.serviceWorker?.addEventListener("message", handler);
     return () => navigator.serviceWorker?.removeEventListener("message", handler);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Handle URL params for TTS auto-trigger on page open ─
   useEffect(() => {
@@ -206,10 +207,12 @@ export function useVocalAlerts(socketRef: React.RefObject<Socket | null>) {
     const ttsMessage = params.get("ttsMessage");
     if (ttsMessage && params.get("tts") === "1") {
       // Small delay to let TTS voices load
-      const timer = setTimeout(() => speak(decodeURIComponent(ttsMessage)), 800);
+      const timer = setTimeout(() => {
+        if (speakRef.current) speakRef.current(decodeURIComponent(ttsMessage));
+      }, 800);
       return () => clearTimeout(timer);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Page Visibility: pause/resume TTS when tab changes ─
   useEffect(() => {
@@ -271,6 +274,13 @@ export function useVocalAlerts(socketRef: React.RefObject<Socket | null>) {
     setLastSpoken(text);
     window.speechSynthesis.speak(utterance);
   }, []);
+
+  // Keep speakRef in sync so effect closures (Service Worker message handler,
+  // URL param auto-trigger) always invoke the latest `speak` implementation.
+  // Must be inside useEffect to avoid "Cannot update ref during render" rule.
+  useEffect(() => {
+    speakRef.current = speak;
+  }, [speak]);
 
   // ═══════════════════════════════════════════════════════
   // speakWithChime — chime + TTS combined

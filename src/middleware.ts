@@ -1,10 +1,62 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { jwtVerify } from "jose";
 
-// BYPASS AUTH - Tout passer sans vérification
-// TODO: Remettre l'authentification quand le problème de cookies Coolify sera résolu
+/**
+ * Middleware d'authentification — protège les routes authentifiées.
+ *
+ * PRÉCÉDENT ÉTAT (CRITIQUE — bypass désactivé)
+ * ─────────────────────────────────────────────
+ * Le middleware était un no-op (`return NextResponse.next()`) à cause d'un
+ * workaround pour un problème de cookies Coolify. Conséquence : n'importe quel
+ * visiteur anonyme était traité comme superadmin.
+ *
+ * NOUVEL ÉTAT (restauré)
+ * ──────────────────────
+ * Lit le cookie `next-auth.session-token`, décode et vérifie le JWT avec
+ * `NEXTAUTH_SECRET` (via `jose.jwtVerify`). Si invalide ou absent, redirige
+ * vers `/login?callbackUrl=...`. Si valide, laisse passer — le contrôle de
+ * rôle par espace est délégué aux layouts Server Components via
+ * `getServerSession()` (qui refait la même vérification).
+ *
+ * ROUTES PROTÉGÉES
+ * ────────────────
+ * - /superadmin/*  → superadmin uniquement (vérifié dans layout.tsx)
+ * - /admin/*       → admin + superadmin (vérifié dans layout.tsx)
+ * - /agent/*       → agent + admin + superadmin (vérifié dans layout.tsx)
+ * - /client/*      → toute session valide
+ *
+ * /login n'est PAS protégé — la page doit rester accessible sans session.
+ */
+const COOKIE_NAME = "next-auth.session-token";
+
+function getSecret(): Uint8Array {
+  const secret =
+    process.env.NEXTAUTH_SECRET ||
+    "busgo-superadmin-secret-change-me-2024";
+  return new TextEncoder().encode(secret);
+}
+
+async function verifySessionToken(token: string | undefined): Promise<boolean> {
+  if (!token) return false;
+  try {
+    await jwtVerify(token, getSecret(), { algorithms: ["HS256"] });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function middleware(request: NextRequest) {
+  const token = request.cookies.get(COOKIE_NAME)?.value;
+  const isValid = await verifySessionToken(token);
+
+  if (!isValid) {
+    // Rediriger vers /login en préservant l'URL d'origine pour post-login redirect
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
   return NextResponse.next();
 }
 
@@ -14,6 +66,5 @@ export const config = {
     "/admin/:path*",
     "/agent/:path*",
     "/client/:path*",
-    "/login",
   ],
 };

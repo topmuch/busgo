@@ -1,6 +1,7 @@
 import { getServerSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
-import { Bus, LogOut, User, Wifi, WifiOff } from "lucide-react";
+import { Bus, LogOut } from "lucide-react";
+import { Icon, type IconName } from "@/lib/icon-map";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -31,9 +32,9 @@ export default async function ClientLayout({
     .toUpperCase()
     .slice(0, 2);
 
-  const navItems = [
-    { href: "/client", label: "Mon voyage", icon: Bus },
-    { href: "/client/billets", label: "Historique", icon: User },
+  const navItems: { href: string; label: string; icon: IconName }[] = [
+    { href: "/client", label: "Mon voyage", icon: "Bus" },
+    { href: "/client/billets", label: "Historique", icon: "User" },
   ];
 
   return (
@@ -82,7 +83,7 @@ export default async function ClientLayout({
           {navItems.map((item) => (
             <Link key={item.href} href={item.href}>
               <Button variant="ghost" size="sm" className="flex-col gap-0.5 h-auto py-1">
-                <item.icon className="h-4 w-4" />
+                <Icon name={item.icon} className="h-4 w-4" />
                 <span className="text-[10px]">{item.label}</span>
               </Button>
             </Link>

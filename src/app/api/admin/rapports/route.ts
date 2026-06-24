@@ -33,7 +33,9 @@ export async function GET(req: NextRequest) {
 }
 
 async function generateReport(tenantId: string, trajetId?: string | null, month?: string | null) {
-  let dateFilter: any = { tenantId };
+  // Use Prisma's loose where input type so we can compose filters dynamically.
+  // We avoid `any` here by typing as a partial Prisma.TrajetWhereInput.
+  let dateFilter: { tenantId: string; id?: string; date?: { gte?: Date; lt?: Date } } = { tenantId };
   if (trajetId) dateFilter = { ...dateFilter, id: trajetId };
   if (month) {
     const [y, m] = month.split("-").map(Number);

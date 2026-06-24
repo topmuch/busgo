@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 import { encode } from "next-auth/jwt";
+import { validateBody } from "@/lib/api-validation";
+import { z } from "zod";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession();
@@ -9,10 +11,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   }
 
-  const { userId } = await req.json();
-  if (!userId) {
-    return NextResponse.json({ error: "userId requis" }, { status: 400 });
-  }
+  // schemas.impersonate expects tenantId, but this endpoint actually wants userId.
+  // Use a local schema.
+  const body = await validateBody(
+    req,
+    z.object({ userId: z.string().min(1, "userId requis") })
+  );
+  if (body instanceof NextResponse) return body;
+  const { userId } = body;
 
   const targetUser = await db.user.findUnique({
     where: { id: userId },

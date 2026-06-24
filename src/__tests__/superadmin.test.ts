@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/superadmin/impersonate/route";
 import { GET } from "@/app/api/superadmin/dashboard/route";
+import { NextRequest } from "next/server";
 import { GET as getTenants } from "@/app/api/superadmin/tenants/route";
 import { PATCH as patchTenants } from "@/app/api/superadmin/tenants/route";
 import { GET as getBilling } from "@/app/api/superadmin/invoices/route";
@@ -98,7 +99,7 @@ describe("SuperAdmin API - Authorization", () => {
 
   it("GET /api/superadmin/settings should reject non-superadmin", async () => {
     vi.mocked(getServerSession).mockResolvedValue(mockAdminSession as never);
-    const res = await getSettings(new Request("http://localhost/api/superadmin/settings"));
+    const res = await getSettings(new NextRequest("http://localhost/api/superadmin/settings"));
     expect(res.status).toBe(403);
   });
 });
@@ -179,7 +180,7 @@ describe("SuperAdmin API - Tenants", () => {
     ]);
     vi.mocked(db.tenant.count).mockResolvedValue(1);
 
-    const res = await getTenants(new Request("http://localhost/api/superadmin/tenants") as never);
+    const res = await getTenants(new NextRequest("http://localhost/api/superadmin/tenants") as never);
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.tenants).toHaveLength(1);
@@ -196,7 +197,7 @@ describe("SuperAdmin API - Tenants", () => {
     vi.mocked(db.user.updateMany).mockResolvedValue({ count: 2 } as never);
     vi.mocked(db.auditLog.create).mockResolvedValue({} as never);
 
-    const res = await patchTenants(new Request("http://localhost/api/superadmin/tenants", {
+    const res = await patchTenants(new NextRequest("http://localhost/api/superadmin/tenants", {
       method: "PATCH",
       body: JSON.stringify({ tenantId: "t1", isActive: false }),
     }) as never);
@@ -220,7 +221,7 @@ describe("SuperAdmin API - Tenants", () => {
   });
 
   it("PATCH should reject without tenantId", async () => {
-    const res = await patchTenants(new Request("http://localhost", {
+    const res = await patchTenants(new NextRequest("http://localhost", {
       method: "PATCH",
       body: JSON.stringify({ isActive: false }),
     }));
@@ -246,7 +247,7 @@ describe("SuperAdmin API - Impersonate", () => {
     } as never);
     vi.mocked(db.systemLog.create).mockResolvedValue({} as never);
 
-    const res = await POST(new Request("http://localhost", {
+    const res = await POST(new NextRequest("http://localhost", {
       method: "POST",
       body: JSON.stringify({ userId: "u1" }),
     }));
@@ -259,7 +260,7 @@ describe("SuperAdmin API - Impersonate", () => {
   });
 
   it("should reject without userId", async () => {
-    const res = await POST(new Request("http://localhost", {
+    const res = await POST(new NextRequest("http://localhost", {
       method: "POST",
       body: JSON.stringify({}),
     }));
@@ -270,7 +271,7 @@ describe("SuperAdmin API - Impersonate", () => {
   it("should return 404 for non-existent user", async () => {
     vi.mocked(db.user.findUnique).mockResolvedValue(null);
 
-    const res = await POST(new Request("http://localhost", {
+    const res = await POST(new NextRequest("http://localhost", {
       method: "POST",
       body: JSON.stringify({ userId: "nonexistent" }),
     }));

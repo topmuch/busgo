@@ -23,6 +23,13 @@ vi.mock("next-auth/react", () => ({
   })),
 }));
 
+// Mock @/lib/get-session — the app's wrapper around next-auth's getServerSession.
+// Tests use `vi.mocked(getServerSession).mockResolvedValue(...)` which requires
+// the function to be a vi.fn() — this mock provides that.
+vi.mock("@/lib/get-session", () => ({
+  getServerSession: vi.fn(),
+}));
+
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
   redirect: vi.fn(),

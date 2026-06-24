@@ -80,6 +80,11 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
 
   return (
     <style
+      // SAFETY: shadcn/ui chart style injection pattern.
+      // `__html` is built from a static THEMES constant (no user input).
+      // The CSS variables are scoped to [data-chart=${id}] where `id` is
+      // a React useId() value (no attacker control). This is the official
+      // shadcn/ui chart implementation.
       dangerouslySetInnerHTML={{
         __html: Object.entries(THEMES)
           .map(

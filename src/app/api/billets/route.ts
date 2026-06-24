@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
+import { validateBody, schemas } from "@/lib/api-validation";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession();
@@ -32,12 +33,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { trajetId, clientId, seatNumber, ticketNumber, passengerName, passengerPhone } = body;
+  const body = await validateBody(req, schemas.billetCreate);
+  if (body instanceof NextResponse) return body;
 
-  if (!trajetId || !clientId || !seatNumber || !ticketNumber || !passengerName) {
+  const { trajetId, clientId, seatNumber, ticketNumber, passengerName, passengerPhone } = body as {
+    trajetId: string;
+    clientId: string;
+    seatNumber: number;
+    ticketNumber?: string;
+    passengerName?: string;
+    passengerPhone?: string;
+  };
+
+  // ticketNumber is optional in the schema but required by this endpoint's business logic
+  if (!ticketNumber) {
     return NextResponse.json(
-      { error: "Champs requis manquants" },
+      { error: "Numéro de billet requis" },
       { status: 400 }
     );
   }
@@ -73,12 +84,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Generate a temporary qrCode that satisfies the @unique constraint.
+  // We update it with the real billet.id-based URL right after creation.
+  const tempQrCode = `https://busgo.sn/b/tmp-${crypto.randomUUID()}`;
+
   const billet = await db.billet.create({
     data: {
       trajetId,
       clientId,
       seatNumber,
       ticketNumber,
+      qrCode: tempQrCode,
       status: "sold",
     },
     include: {

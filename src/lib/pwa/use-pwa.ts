@@ -71,7 +71,13 @@ export function usePWA() {
       const db = await openDB();
       const tx = db.transaction("voyageCache", "readwrite");
       tx.objectStore("voyageCache").put(voyage);
-      await tx.done;
+      // IDBTransaction.done is a modern API not in TS DOM lib types.
+      // Use oncomplete/onerror/onabort as a portable equivalent.
+      await new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
     } catch {
       // IndexedDB unavailable
     }
@@ -96,7 +102,13 @@ export function usePWA() {
       const db = await openDB();
       const tx = db.transaction("notifications", "readwrite");
       tx.objectStore("notifications").put(notif);
-      await tx.done;
+      // IDBTransaction.done is a modern API not in TS DOM lib types.
+      // Use oncomplete/onerror/onabort as a portable equivalent.
+      await new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
     } catch {
       // IndexedDB unavailable
     }

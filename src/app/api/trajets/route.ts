@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
+import { validateBody, schemas } from "@/lib/api-validation";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession();
@@ -71,15 +72,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { busId, origin, destination, date, time, price } = body;
+  const body = await validateBody(req, schemas.trajetCreate);
+  if (body instanceof NextResponse) return body;
 
-  if (!busId || !origin || !destination || !date || !time || !price) {
-    return NextResponse.json(
-      { error: "Champs requis manquants" },
-      { status: 400 }
-    );
-  }
+  const { busId, origin, destination, date, time, price } = body;
 
   // Verify bus belongs to tenant
   const bus = await db.bus.findFirst({

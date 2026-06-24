@@ -82,7 +82,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        {/* Schema.org SaaS markup */}
+        {/* Schema.org SaaS markup.
+            SAFETY: `__html` is built from `JSON.stringify()` of a static
+            object literal (no user input). JSON.stringify guarantees the
+            output is valid JSON, which cannot contain closing </script>
+            sequences that would escape the inline <script> tag. This pattern
+            is the documented Next.js way to inject structured data. */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -114,6 +119,10 @@ export default function RootLayout({
           </ClientVoiceProvider>
         </Providers>
         <Toaster />
+        {/* Service Worker registration script.
+            SAFETY: `__html` is a static string literal (no user input).
+            The script registers /sw.js on page load. No external data is
+            interpolated into the script body, so XSS injection is impossible. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `

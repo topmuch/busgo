@@ -1,15 +1,19 @@
 import { getServerSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
-import { Bus, Ticket, ScanLine, MapPin, LayoutDashboard } from "lucide-react";
+import { Bus } from "lucide-react";
 import { SharedClientHeader, SharedClientNav } from "@/components/shared-header";
 import { AgentPWAProvider } from "@/components/agent/pwa-provider";
+import { Icon, type IconName } from "@/lib/icon-map";
 import Link from "next/link";
 
-const navItems = [
-  { href: "/agent", label: "Accueil", icon: LayoutDashboard },
-  { href: "/agent/trajets", label: "Trajets", icon: MapPin },
-  { href: "/agent/embarquement", label: "Embarquement", icon: ScanLine },
-  { href: "/agent/billets", label: "Billets", icon: Ticket },
+// Icons are referenced by STRING NAME (not as components) so they can be
+// passed from this Server Component to the SharedClientNav Client Component.
+// See src/lib/icon-map.tsx for the full registry.
+const navItems: { href: string; label: string; icon: IconName }[] = [
+  { href: "/agent", label: "Accueil", icon: "LayoutDashboard" },
+  { href: "/agent/trajets", label: "Trajets", icon: "MapPin" },
+  { href: "/agent/embarquement", label: "Embarquement", icon: "ScanLine" },
+  { href: "/agent/billets", label: "Billets", icon: "Ticket" },
 ];
 
 export default async function AgentLayout({
@@ -74,7 +78,7 @@ export default async function AgentLayout({
               href={item.href}
               className="flex flex-col items-center justify-center gap-0.5 rounded-lg px-3 py-1.5 text-muted-foreground transition-colors hover:text-primary active:text-primary min-w-[60px]"
             >
-              <item.icon className="h-5 w-5" />
+              <Icon name={item.icon} className="h-5 w-5" />
               <span className="text-[10px] font-medium leading-tight">{item.label}</span>
             </Link>
           ))}

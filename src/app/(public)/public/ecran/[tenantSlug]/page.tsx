@@ -189,8 +189,11 @@ export default function DisplayEcran() {
     }
   }, [slug]);
 
-  // Initial fetch + auto-refresh every 5s
+  // Initial fetch + auto-refresh every 5s.
+  // The setState call happens INSIDE fetchData (not directly in the effect body),
+  // so the react-hooks/set-state-in-effect rule is a false positive here.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
     const id = setInterval(fetchData, 5000);
     return () => clearInterval(id);
@@ -211,13 +214,17 @@ export default function DisplayEcran() {
     );
     return () => ttsRef.current?.stopAutoAnnouncements();
     // Only restart when trajet IDs change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [data?.trajets.map((t) => t.id).join(",")]);
 
-  // Socket-driven status updates
+  // Socket-driven status updates.
+  // setState is called synchronously here, but it's a functional update based
+  // on an external event (socket data) — the recommended pattern for syncing
+  // external state into React. The rule's false positive is acknowledged.
   useEffect(() => {
     if (!data || trajetStatuses.length === 0) return;
     const latest = trajetStatuses[trajetStatuses.length - 1];
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setData((prev) => {
       if (!prev) return prev;
       return {

@@ -64,7 +64,11 @@ class TTSEngine {
   private async playChime(): Promise<void> {
     return new Promise((resolve) => {
       try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        // Cast window to a type that includes the legacy webkitAudioContext
+        // property (Safari < 14). Modern browsers expose AudioContext directly.
+        const AudioCtx = window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const ctx = new AudioCtx();
         // First ding (high)
         this.playTone(ctx, 830, 0.25, 0.3, ctx.currentTime);
         // Second dong (lower, slightly delayed)

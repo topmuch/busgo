@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
+import { validateBody, schemas } from "@/lib/api-validation";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,15 +18,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
-    const body = await req.json();
-    const { qrCode, trajetId } = body;
+    const body = await validateBody(req, schemas.scanBillet);
+    if (body instanceof NextResponse) return body; // validation error
 
-    if (!qrCode || !trajetId) {
-      return NextResponse.json(
-        { error: "QR code et trajet ID requis" },
-        { status: 400 }
-      );
-    }
+    const { qrCode, trajetId } = body;
 
     // Find the billet by QR code
     const billet = await db.billet.findUnique({

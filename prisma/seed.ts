@@ -451,7 +451,23 @@ async function main() {
   console.log(`Created 2 subscriptions`);
 
   // --- Invoices ---
-  const invoiceData = [];
+  // Explicitly type the array to avoid TS inferring it as `never[]` (which
+  // then rejects `.push({...})` with "Argument of type ... is not assignable
+  // to parameter of type 'never'").
+  const invoiceData: Array<{
+    tenantId: string;
+    subscriptionId: string;
+    invoiceNumber: string;
+    total: number;
+    numberOfBuses: number;
+    pricePerBus: number;
+    subtotal: number;
+    periodStart: Date;
+    periodEnd: Date;
+    status: string;
+    dueDate: Date;
+    paidAt: Date | null;
+  }> = [];
   for (let m = 0; m < 4; m++) {
     const month = new Date(now.getFullYear(), now.getMonth() - (3 - m), 1);
     const dueDay = new Date(month.getFullYear(), month.getMonth() + 1, 5);

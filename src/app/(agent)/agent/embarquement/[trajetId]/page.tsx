@@ -153,7 +153,7 @@ export default function EmbarquementPage() {
       });
       setRetardNotifs(relevant);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [driverRetards, trajetId]);
 
   // Sync billet scan updates from hook state
@@ -173,7 +173,7 @@ export default function EmbarquementPage() {
         ),
       };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [billetScans.length, trajetId]);
 
   // Sync trajet status updates from hook state
@@ -186,7 +186,7 @@ export default function EmbarquementPage() {
       if (!prev || prev.status === latest.status) return prev;
       return { ...prev, status: latest.status };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [trajetStatuses.length, trajetId]);
 
   /* ================================================================ */

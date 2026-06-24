@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
+import { validateBody, schemas } from "@/lib/api-validation";
 
 export async function GET() {
   const session = await getServerSession();
@@ -29,15 +30,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { number, capacity, driverId } = body;
+  const body = await validateBody(req, schemas.busCreate);
+  if (body instanceof NextResponse) return body;
 
-  if (!number || !capacity) {
-    return NextResponse.json(
-      { error: "Numéro et capacité requis" },
-      { status: 400 }
-    );
-  }
+  const { number, capacity, driverId } = body;
 
   // Check uniqueness
   const existing = await db.bus.findFirst({

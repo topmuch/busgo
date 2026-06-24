@@ -4,12 +4,13 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import type { LucideIcon } from "lucide-react";
+import { iconMap, type IconName } from "@/lib/icon-map";
 
 interface NavItem {
   href: string;
   label: string;
-  icon: LucideIcon;
+  /** Icon name (string key into iconMap). See src/lib/icon-map.tsx. */
+  icon: IconName;
 }
 
 interface NavGroup {
@@ -35,6 +36,7 @@ export function SuperAdminSidebar({
             <nav className="flex flex-col gap-0.5">
               {group.items.map((item) => {
                 const isActive = pathname === item.href;
+                const Icon = iconMap[item.icon];
                 return (
                   <Link key={item.href} href={item.href}>
                     <Button
@@ -46,7 +48,7 @@ export function SuperAdminSidebar({
                           "bg-primary/10 text-primary font-medium border-l-2 border-primary pl-[calc(0.75rem-2px)]"
                       )}
                     >
-                      <item.icon className="h-4 w-4 shrink-0" />
+                      {Icon && <Icon className="h-4 w-4 shrink-0" />}
                       {item.label}
                     </Button>
                   </Link>

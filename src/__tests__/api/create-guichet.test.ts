@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/billets/create-guichet/route";
 import bcrypt from "bcryptjs";
+import { NextRequest } from "next/server";
 
 import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
@@ -25,7 +26,7 @@ describe("POST /api/billets/create-guichet", () => {
 
   it("returns 401 when not authenticated", async () => {
     vi.mocked(getServerSession).mockResolvedValue(null as never);
-    const req = new Request("http://localhost:3000/api/billets/create-guichet", {
+    const req = new NextRequest("http://localhost:3000/api/billets/create-guichet", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "t1",
@@ -39,7 +40,7 @@ describe("POST /api/billets/create-guichet", () => {
   });
 
   it("returns 400 when required fields missing", async () => {
-    const req = new Request("http://localhost:3000/api/billets/create-guichet", {
+    const req = new NextRequest("http://localhost:3000/api/billets/create-guichet", {
       method: "POST",
       body: JSON.stringify({ trajetId: "t1", passengerName: "Amadou" }),
     });
@@ -50,7 +51,7 @@ describe("POST /api/billets/create-guichet", () => {
   it("returns 404 when trajet not found", async () => {
     vi.mocked(db.trajet.findFirst).mockResolvedValue(null as never);
 
-    const req = new Request("http://localhost:3000/api/billets/create-guichet", {
+    const req = new NextRequest("http://localhost:3000/api/billets/create-guichet", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "nonexistent",
@@ -70,7 +71,7 @@ describe("POST /api/billets/create-guichet", () => {
       bus: { capacity: 50 },
     } as never);
 
-    const req = new Request("http://localhost:3000/api/billets/create-guichet", {
+    const req = new NextRequest("http://localhost:3000/api/billets/create-guichet", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "trajet-1",
@@ -93,7 +94,7 @@ describe("POST /api/billets/create-guichet", () => {
     } as never);
     vi.mocked(db.billet.findFirst).mockResolvedValueOnce({ id: "b1" } as never);
 
-    const req = new Request("http://localhost:3000/api/billets/create-guichet", {
+    const req = new NextRequest("http://localhost:3000/api/billets/create-guichet", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "trajet-1",
@@ -119,7 +120,7 @@ describe("POST /api/billets/create-guichet", () => {
     // findUnique: check ticket number (found)
     vi.mocked(db.billet.findUnique).mockResolvedValueOnce({ id: "b-existing" } as never);
 
-    const req = new Request("http://localhost:3000/api/billets/create-guichet", {
+    const req = new NextRequest("http://localhost:3000/api/billets/create-guichet", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "trajet-1",
@@ -177,7 +178,7 @@ describe("POST /api/billets/create-guichet", () => {
       qrCode: "https://busgo.sn/b/billet-new",
     } as never);
 
-    const req = new Request("http://localhost:3000/api/billets/create-guichet", {
+    const req = new NextRequest("http://localhost:3000/api/billets/create-guichet", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "trajet-1",
@@ -245,7 +246,7 @@ describe("POST /api/billets/create-guichet", () => {
       qrCode: "https://busgo.sn/b/billet-1",
     } as never);
 
-    const req = new Request("http://localhost:3000/api/billets/create-guichet", {
+    const req = new NextRequest("http://localhost:3000/api/billets/create-guichet", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "trajet-1",
@@ -294,7 +295,7 @@ describe("POST /api/billets/create-guichet", () => {
       client: { id: "c-1", name: "Fatou", phone: "" },
     } as never);
 
-    const req = new Request("http://localhost:3000/api/billets/create-guichet", {
+    const req = new NextRequest("http://localhost:3000/api/billets/create-guichet", {
       method: "POST",
       body: JSON.stringify({
         trajetId: "trajet-1",

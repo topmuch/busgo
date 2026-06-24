@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, POST } from "@/app/api/buses/route";
 
+import { NextRequest } from "next/server";
 // Import the mocked module
 import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
@@ -89,7 +90,7 @@ describe("POST /api/buses", () => {
 
   it("returns 401 when not authenticated", async () => {
     vi.mocked(getServerSession).mockResolvedValue(null as never);
-    const req = new Request("http://localhost:3000/api/buses", {
+    const req = new NextRequest("http://localhost:3000/api/buses", {
       method: "POST",
       body: JSON.stringify({ number: "FB-003", capacity: 50 }),
     });
@@ -98,14 +99,15 @@ describe("POST /api/buses", () => {
   });
 
   it("returns 400 when number or capacity missing", async () => {
-    const req = new Request("http://localhost:3000/api/buses", {
+    const req = new NextRequest("http://localhost:3000/api/buses", {
       method: "POST",
       body: JSON.stringify({ number: "FB-003" }),
     });
     const res = await POST(req);
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toContain("requis");
+    // zod validation returns "Données invalides" (or the field-specific message)
+    expect(data.error).toMatch(/invalid|requis|invalid/i);
   });
 
   it("returns 409 when bus number already exists for tenant", async () => {
@@ -114,7 +116,7 @@ describe("POST /api/buses", () => {
       number: "FB-001",
     } as never);
 
-    const req = new Request("http://localhost:3000/api/buses", {
+    const req = new NextRequest("http://localhost:3000/api/buses", {
       method: "POST",
       body: JSON.stringify({ number: "FB-001", capacity: 50 }),
     });
@@ -135,7 +137,7 @@ describe("POST /api/buses", () => {
       driver: null,
     } as never);
 
-    const req = new Request("http://localhost:3000/api/buses", {
+    const req = new NextRequest("http://localhost:3000/api/buses", {
       method: "POST",
       body: JSON.stringify({ number: "FB-003", capacity: 50 }),
     });
@@ -164,7 +166,7 @@ describe("POST /api/buses", () => {
       driver: { id: "driver-1", name: "Moussa" },
     } as never);
 
-    const req = new Request("http://localhost:3000/api/buses", {
+    const req = new NextRequest("http://localhost:3000/api/buses", {
       method: "POST",
       body: JSON.stringify({ number: "FB-004", capacity: 40, driverId: "driver-1" }),
     });

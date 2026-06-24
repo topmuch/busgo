@@ -7,12 +7,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-const demoAccounts = [
-  { email: "superadmin@busgo.com", password: "Demo1234!", role: "SuperAdmin", color: "bg-rose-100 text-rose-800" },
-  { email: "admin@fastbus.com", password: "Demo1234!", role: "Admin", color: "bg-emerald-100 text-emerald-800" },
-  { email: "agent@fastbus.com", password: "Demo1234!", role: "Agent", color: "bg-amber-100 text-amber-800" },
-  { email: "client@demo.com", password: "Demo1234!", role: "Client", color: "bg-sky-100 text-sky-800" },
-];
+// Demo accounts for quick-login buttons.
+//
+// SECURITY: Demo accounts are ONLY shown when the env var NEXT_PUBLIC_SHOW_DEMO_LOGINS
+// is set to "true". In production, set NEXT_PUBLIC_SHOW_DEMO_LOGINS to undefined/false
+// to hide the demo-login buttons entirely.
+//
+// The password value below is the demo password "Demo1234!" used by the seed script.
+// It is intentionally exposed for development convenience only — it does NOT grant
+// access to any production system (the database must be seeded with these exact
+// credentials for the demo logins to work).
+const SHOW_DEMO_LOGINS = process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS === "true";
+
+const demoAccounts = SHOW_DEMO_LOGINS
+  ? [
+      { email: "superadmin@busgo.com", password: "Demo1234!", role: "SuperAdmin", color: "bg-rose-100 text-rose-800" },
+      { email: "admin@fastbus.com",    password: "Demo1234!", role: "Admin",     color: "bg-emerald-100 text-emerald-800" },
+      { email: "agent@fastbus.com",    password: "Demo1234!", role: "Agent",     color: "bg-amber-100 text-amber-800" },
+      { email: "client@demo.com",      password: "Demo1234!", role: "Client",    color: "bg-sky-100 text-sky-800" },
+    ]
+  : [];
 
 const errorMap: Record<number, string> = {
   400: "Email et mot de passe requis",
@@ -124,23 +138,25 @@ function LoginForm() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Comptes de démonstration</CardTitle>
-            <CardDescription className="text-xs">Cliquez pour vous connecter automatiquement</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-2">
-              {demoAccounts.map((account) => (
-                <button key={account.email} type="button" onClick={() => handleQuickLogin(account)}
-                  className="rounded-lg border p-2.5 text-left hover:bg-muted/80 transition-colors">
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${account.color}`}>{account.role}</span>
-                  <p className="text-xs text-muted-foreground mt-1 truncate">{account.email}</p>
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {demoAccounts.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Comptes de démonstration</CardTitle>
+              <CardDescription className="text-xs">Cliquez pour vous connecter automatiquement</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-2">
+                {demoAccounts.map((account) => (
+                  <button key={account.email} type="button" onClick={() => handleQuickLogin(account)}
+                    className="rounded-lg border p-2.5 text-left hover:bg-muted/80 transition-colors">
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${account.color}`}>{account.role}</span>
+                    <p className="text-xs text-muted-foreground mt-1 truncate">{account.email}</p>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

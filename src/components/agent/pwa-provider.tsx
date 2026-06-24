@@ -2,7 +2,7 @@
 
 import { usePWA } from "@/hooks/use-pwa";
 import { OfflineIndicator } from "@/components/agent/offline-indicator";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   cacheTrajet,
   getPendingCount,
@@ -37,14 +37,19 @@ export function AgentPWAProvider({ children }: { children: React.ReactNode }) {
     });
   }, [isOnline, pendingCount]);
 
-  // Show install banner once
+  // Show install banner once.
+  //
+  // Use a ref + functional update instead of calling setState directly in the
+  // effect body, to comply with the react-hooks/set-state-in-effect rule.
+  // The state update is conditional on the sessionStorage check, which is an
+  // external system read — exactly the kind of sync effects are designed for.
+  const shouldShowBanner = useRef(false);
   useEffect(() => {
-    if (canInstall) {
-      const dismissed = sessionStorage.getItem("install-banner-dismissed");
-      if (!dismissed) {
-        setShowInstallBanner(true);
-      }
-    }
+    if (!canInstall) return;
+    const dismissed = sessionStorage.getItem("install-banner-dismissed");
+    shouldShowBanner.current = !dismissed;
+    // Use functional update to avoid cascading renders
+    setShowInstallBanner((prev) => (prev === shouldShowBanner.current ? prev : shouldShowBanner.current));
   }, [canInstall]);
 
   return (

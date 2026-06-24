@@ -66,7 +66,7 @@ export default async function ClientLayout({
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/api/auth/signout" className="cursor-pointer">
+                  <Link href="/api/logout" className="cursor-pointer">
                     <LogOut className="mr-2 h-4 w-4" />
                     Déconnexion
                   </Link>

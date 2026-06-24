@@ -60,7 +60,7 @@ export function SharedClientHeader({
 
       {/* Visible logout button */}
       <Link
-        href="/api/auth/signout"
+        href="/api/logout"
         className={cn(
           "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5",
           "text-sm font-medium transition-all duration-200",
@@ -93,7 +93,7 @@ export function SharedClientHeader({
           </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link href="/api/auth/signout" className="cursor-pointer">
+            <Link href="/api/logout" className="cursor-pointer">
               <LogOut className="mr-2 h-4 w-4" />
               Déconnexion
             </Link>

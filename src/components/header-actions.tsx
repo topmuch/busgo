@@ -27,7 +27,7 @@ function LogoutButton({ variant = "default" }: { variant?: "default" | "agent" |
 
   return (
     <Link
-      href="/api/auth/signout"
+      href="/api/logout"
       className={cn(
         "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
         colorMap[variant]

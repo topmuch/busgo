@@ -79,17 +79,15 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   cookies: {
     sessionToken: {
-      // In production (HTTPS), use the __Secure- prefix and secure: true
-      // so the cookie is only sent over HTTPS. In dev (HTTP localhost),
-      // use the non-prefixed name with secure: false.
-      name: process.env.NODE_ENV === "production"
-        ? "__Secure-next-auth.session-token"
-        : "next-auth.session-token",
+      // Always use the bare name (no __Secure- prefix) so the cookie works
+      // on both HTTP and HTTPS. The `secure` flag is set dynamically by
+      // the login route based on X-Forwarded-Proto header.
+      name: "next-auth.session-token",
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: process.env.NODE_ENV === "production",
+        secure: false, // Set dynamically in /api/login based on forwarded proto
       },
     },
   },

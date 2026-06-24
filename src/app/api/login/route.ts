@@ -81,18 +81,21 @@ export async function POST(request: NextRequest) {
       user: { role: user.role, name: user.name, email: user.email },
     });
 
-    // Cookie options adapt to environment:
-    // - In production (NODE_ENV=production), `secure: true` so the cookie is
-    //   sent over HTTPS (required by modern browsers when the site is on HTTPS,
-    //   even if behind a reverse proxy like Coolify/Caddy that terminates TLS).
-    // - In development, `secure: false` so the cookie works on localhost HTTP.
-    const isProduction = process.env.NODE_ENV === "production";
+    // Detect HTTPS from X-Forwarded-Proto header (set by reverse proxies
+    // like Caddy/Traefik/Coolify/Nginx when they terminate TLS).
+    // If the user-facing connection is HTTPS, use secure cookie. Otherwise,
+    // use non-secure so the cookie works on HTTP (e.g. staging with sslip.io).
+    const forwardedProto = request.headers.get("x-forwarded-proto");
+    const isHttps =
+      (forwardedProto && forwardedProto.includes("https")) ||
+      request.nextUrl.protocol === "https:";
+
     response.cookies.set("next-auth.session-token", token, {
       httpOnly: true,
       sameSite: "lax",
       path: "/",
       maxAge: 30 * 24 * 60 * 60,
-      secure: isProduction,
+      secure: isHttps,
     });
 
     return response;

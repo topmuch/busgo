@@ -1,9 +1,9 @@
 import { getServerSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
-import { Bus } from "lucide-react";
+import { Bus, LayoutDashboard, MapPin, ScanLine, Ticket } from "lucide-react";
 import { SharedClientHeader, SharedClientNav } from "@/components/shared-header";
 import { AgentPWAProvider } from "@/components/agent/pwa-provider";
-import { Icon, type IconName } from "@/lib/icon-map";
+import type { IconName } from "@/lib/icon-map";
 import Link from "next/link";
 
 // Icons are referenced by STRING NAME (not as components) so they can be
@@ -15,6 +15,20 @@ const navItems: { href: string; label: string; icon: IconName }[] = [
   { href: "/agent/embarquement", label: "Embarquement", icon: "ScanLine" },
   { href: "/agent/billets", label: "Billets", icon: "Ticket" },
 ];
+
+// Map icon names to actual Lucide components for the mobile bottom nav.
+// We import the icons directly (not via the Icon wrapper) because the
+// wrapper component from icon-map.tsx can cause issues in production
+// builds when used inside a Server Component.
+const mobileNavIcons: Record<IconName, React.ComponentType<{ className?: string }>> = {
+  LayoutDashboard,
+  MapPin,
+  ScanLine,
+  Ticket,
+};
+
+// Prevent static prerendering — this layout always needs the session cookie.
+export const dynamic = "force-dynamic";
 
 export default async function AgentLayout({
   children,
@@ -72,16 +86,19 @@ export default async function AgentLayout({
       {/* Mobile bottom navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-bottom">
         <div className="flex items-center justify-around h-16 px-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex flex-col items-center justify-center gap-0.5 rounded-lg px-3 py-1.5 text-muted-foreground transition-colors hover:text-primary active:text-primary min-w-[60px]"
-            >
-              <Icon name={item.icon} className="h-5 w-5" />
-              <span className="text-[10px] font-medium leading-tight">{item.label}</span>
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const MobileIcon = mobileNavIcons[item.icon];
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex flex-col items-center justify-center gap-0.5 rounded-lg px-3 py-1.5 text-muted-foreground transition-colors hover:text-primary active:text-primary min-w-[60px]"
+              >
+                {MobileIcon && <MobileIcon className="h-5 w-5" />}
+                <span className="text-[10px] font-medium leading-tight">{item.label}</span>
+              </Link>
+            );
+          })}
         </div>
       </nav>
     </div>

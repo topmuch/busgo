@@ -1,7 +1,7 @@
 import { getServerSession } from "@/lib/get-session";
 import { redirect } from "next/navigation";
-import { Bus, LogOut } from "lucide-react";
-import { Icon, type IconName } from "@/lib/icon-map";
+import { Bus, LogOut, User } from "lucide-react";
+import type { IconName } from "@/lib/icon-map";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -12,6 +12,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+// Prevent static prerendering — this layout always needs the session cookie.
+export const dynamic = "force-dynamic";
+
+// Map icon names to actual Lucide components for the mobile bottom nav.
+const mobileNavIcons: Record<IconName, React.ComponentType<{ className?: string }>> = {
+  Bus,
+  User,
+};
 
 export default async function ClientLayout({
   children,
@@ -80,14 +89,17 @@ export default async function ClientLayout({
       {/* Mobile bottom nav */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background pb-[env(safe-area-inset-bottom)]">
         <nav className="flex justify-around py-2">
-          {navItems.map((item) => (
-            <Link key={item.href} href={item.href}>
-              <Button variant="ghost" size="sm" className="flex-col gap-0.5 h-auto py-1">
-                <Icon name={item.icon} className="h-4 w-4" />
-                <span className="text-[10px]">{item.label}</span>
-              </Button>
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const MobileIcon = mobileNavIcons[item.icon];
+            return (
+              <Link key={item.href} href={item.href}>
+                <Button variant="ghost" size="sm" className="flex-col gap-0.5 h-auto py-1">
+                  {MobileIcon && <MobileIcon className="h-4 w-4" />}
+                  <span className="text-[10px]">{item.label}</span>
+                </Button>
+              </Link>
+            );
+          })}
         </nav>
       </div>
 

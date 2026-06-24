@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScanLine, Ticket, Clock, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
+export const dynamic = 'force-dynamic';
+
 export default async function AgentDashboard() {
   const session = await getServerSession();
   const tenantId = session?.user?.tenantId;

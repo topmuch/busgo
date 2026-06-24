@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bus, Ticket, Users, TrendingUp } from "lucide-react";
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminDashboard() {
   const session = await getServerSession();
   const tenantId = session?.user?.tenantId;

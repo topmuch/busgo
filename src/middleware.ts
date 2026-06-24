@@ -4,17 +4,18 @@ import { jwtVerify } from "jose";
 /**
  * Middleware d'authentification — protège les routes authentifiées.
  *
- * PRÉCÉDENT ÉTAT (CRITIQUE — bypass désactivé)
- * ─────────────────────────────────────────────
- * Le middleware était un no-op (`return NextResponse.next()`) à cause d'un
- * workaround pour un problème de cookies Coolify. Conséquence : n'importe quel
- * visiteur anonyme était traité comme superadmin.
+ * Lit le cookie `next-auth.session-token`, décode et vérifie le JWT avec
+ * `NEXTAUTH_SECRET` (via `jose.jwtVerify`). Si invalide ou absent, redirige
+ * vers `/login?callbackUrl=...`.
  *
- * NOUVEL ÉTAT (restauré)
- * ──────────────────────
- * Lit le cookie `next-auth.session-token` (ou `__Secure-next-auth.session-token`
- * en production HTTPS), décode et vérifie le JWT avec `NEXTAUTH_SECRET` (via
- * `jose.jwtVerify`). Si invalide ou absent, redirige vers `/login?callbackUrl=...`.
+ * IMPORTANT — Gestion des cookies invalides
+ * ─────────────────────────────────────────
+ * Quand un utilisateur a un vieux cookie invalide (par exemple après un
+ * changement de NEXTAUTH_SECRET ou après un changement de format de token),
+ * le middleware supprime ce cookie avant de rediriger vers /login. Cela
+ * évite la boucle "je clique sur un lien → redirect /login → je me login →
+ * je clique sur un lien → redirect /login" qui se produit quand le navigateur
+ * garde un cookie invalide.
  *
  * ROUTES PROTÉGÉES
  * ────────────────
@@ -25,10 +26,10 @@ import { jwtVerify } from "jose";
  *
  * /login n'est PAS protégé — la page doit rester accessible sans session.
  */
-const COOKIE_NAMES =
-  process.env.NODE_ENV === "production"
-    ? ["__Secure-next-auth.session-token", "next-auth.session-token"]
-    : ["next-auth.session-token"];
+const COOKIE_NAMES = [
+  "next-auth.session-token",
+  "__Secure-next-auth.session-token",
+];
 
 function getSecret(): Uint8Array {
   const secret =
@@ -48,20 +49,42 @@ async function verifySessionToken(token: string | undefined): Promise<boolean> {
 }
 
 export async function middleware(request: NextRequest) {
-  // Try both cookie names (production uses __Secure- prefix, dev uses bare name)
+  // Find the first present session cookie (try bare name first — that's what
+  // /api/login sets now).
   let token: string | undefined;
+  let tokenCookieName: string | undefined;
   for (const name of COOKIE_NAMES) {
-    token = request.cookies.get(name)?.value;
-    if (token) break;
+    const v = request.cookies.get(name)?.value;
+    if (v) {
+      token = v;
+      tokenCookieName = name;
+      break;
+    }
   }
 
   const isValid = await verifySessionToken(token);
 
   if (!isValid) {
-    // Rediriger vers /login en préservant l'URL d'origine pour post-login redirect
+    // Build the redirect response to /login
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
-    return NextResponse.redirect(loginUrl);
+
+    const response = NextResponse.redirect(loginUrl);
+
+    // If an invalid cookie was present, DELETE it so the next login attempt
+    // starts from a clean state. Without this, the browser keeps sending
+    // the invalid cookie on every subsequent navigation, causing an infinite
+    // /login redirect loop even after a successful login.
+    if (tokenCookieName) {
+      response.cookies.set(tokenCookieName, "", {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0, // expire immediately
+      });
+    }
+
+    return response;
   }
 
   return NextResponse.next();

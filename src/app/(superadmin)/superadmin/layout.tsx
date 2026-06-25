@@ -8,6 +8,12 @@ import { Button } from "@/components/ui/button";
 import { type IconName } from "@/lib/icon-map";
 import Link from "next/link";
 
+// Prevent static prerendering — this layout always needs the session cookie.
+// Without this, Next.js production build tries to prerender the layout at
+// build time (when no cookies are available), which causes RSC 500 errors
+// when the user navigates via <Link> (soft navigation).
+export const dynamic = "force-dynamic";
+
 // Icons are referenced by STRING NAME (not as components) so they can be
 // passed from this Server Component to the SuperAdminSidebar Client Component.
 // See src/lib/icon-map.tsx for the full registry.

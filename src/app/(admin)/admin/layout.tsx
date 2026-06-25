@@ -6,6 +6,12 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import type { IconName } from "@/lib/icon-map";
 
+// Prevent static prerendering — this layout always needs the session cookie.
+// Without this, Next.js production build tries to prerender the layout at
+// build time (when no cookies are available), which causes RSC 500 errors
+// when the user navigates via <Link> (soft navigation).
+export const dynamic = "force-dynamic";
+
 export default async function AdminLayout({
   children,
 }: {

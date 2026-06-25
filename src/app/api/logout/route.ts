@@ -33,7 +33,14 @@ export async function POST(request: NextRequest) {
     redirect: "/login",
   });
 
-  // Clear the session cookie (both names for safety)
+  // Clear ALL possible session cookie names
+  response.cookies.set("busgo-session", "", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+    secure: isHttps,
+  });
   response.cookies.set("next-auth.session-token", "", {
     httpOnly: true,
     sameSite: "lax",
@@ -72,7 +79,14 @@ export async function GET(request: NextRequest) {
 
   const response = NextResponse.redirect(loginUrl);
 
-  // Clear both possible cookie names
+  // Clear ALL possible session cookie names
+  response.cookies.set("busgo-session", "", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+    secure: isHttps,
+  });
   response.cookies.set("next-auth.session-token", "", {
     httpOnly: true,
     sameSite: "lax",

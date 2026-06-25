@@ -29,10 +29,11 @@ import type { Session } from "next-auth";
  *   if (session.user.role !== "superadmin") redirect("/unauthorized");
  */
 
-const COOKIE_NAMES =
-  process.env.NODE_ENV === "production"
-    ? ["__Secure-next-auth.session-token", "next-auth.session-token"]
-    : ["next-auth.session-token"];
+const COOKIE_NAMES = [
+  "busgo-session",
+  "next-auth.session-token",
+  "__Secure-next-auth.session-token",
+];
 
 function getSecret(): Uint8Array {
   const secret =

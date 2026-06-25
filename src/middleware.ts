@@ -26,6 +26,7 @@ function buildPublicUrl(request: NextRequest, path: string): URL {
  * vers `/login?callbackUrl=...`.
  */
 const COOKIE_NAMES = [
+  "busgo-session",
   "next-auth.session-token",
   "__Secure-next-auth.session-token",
 ];

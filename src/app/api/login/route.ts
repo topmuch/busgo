@@ -90,34 +90,13 @@ export async function POST(request: NextRequest) {
       (forwardedProto && forwardedProto.includes("https")) ||
       request.nextUrl.protocol === "https:";
 
-    // CRITICAL: Clear ALL existing session cookies before setting the new one.
-    // Without this, the browser can end up with multiple cookies:
-    //   - an old `__Secure-next-auth.session-token` from a previous NextAuth
-    //     deployment (e.g. before our auth refactor) — usually invalid
-    //   - the new `next-auth.session-token` we're about to set
-    // Even though the middleware tries all cookies, having stale cookies
-    // can still cause issues in some edge cases (e.g. NextAuth's /api/auth/
-    // session route reading the wrong one and returning null → triggering
-    // a redirect to /login).
-    response.cookies.set("__Secure-next-auth.session-token", "", {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 0,
-      secure: true, // __Secure- prefix requires secure: true
-    });
-    // Also clear any old non-prefixed cookie that might exist with a different
-    // path (some NextAuth versions set it with path="" or path="/auth")
-    response.cookies.set("next-auth.session-token", "", {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 0,
-      secure: isHttps,
-    });
-
-    // Now set the fresh session cookie
-    response.cookies.set("next-auth.session-token", token, {
+    // Set the fresh session cookie with a UNIQUE name to avoid any collision
+    // with old cookies from previous NextAuth deployments. Using "busgo-session"
+    // (not next-auth.session-token) ensures:
+    //   - No conflict with stale __Secure- prefixed cookies
+    //   - No conflict with NextAuth's own cookie management
+    //   - The middleware and getServerSession() look for this exact name
+    response.cookies.set("busgo-session", token, {
       httpOnly: true,
       sameSite: "lax",
       path: "/",

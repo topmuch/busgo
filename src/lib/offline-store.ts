@@ -41,8 +41,21 @@ interface PendingStatusChange {
 const DB_NAME = "busgo-agent-offline";
 const DB_VERSION = 1;
 
+function isClient(): boolean {
+  return typeof window !== "undefined" && typeof indexedDB !== "undefined";
+}
+
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
+    // Guard against SSR / non-browser environments — indexedDB is undefined
+    // on the server, and accessing it throws. This allows the module to be
+    // imported by Server Components (via AgentPWAProvider in the agent
+    // layout) without crashing the build / runtime.
+    if (!isClient()) {
+      reject(new Error("IndexedDB is not available in this environment"));
+      return;
+    }
+
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onerror = () => reject(request.error);

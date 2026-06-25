@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════
 // Bus Go Client Service Worker v2 — Push with Sound + TTS Actions
 // ═══════════════════════════════════════════════════════════════════
-const CACHE_NAME = "busgo-v2";
+const CACHE_NAME = "busgo-v3"; // bumped from v2 → v3 to invalidate old cache (was serving stale /login redirects)
 const STATIC_ASSETS = [
   "/client",
   "/login",
@@ -59,12 +59,53 @@ self.addEventListener("activate", (event) => {
 });
 
 // ═══════════════════════════════════════════════════════════
-// Fetch — stale-while-revalidate (skip /api/)
+// Fetch — network-first for navigations, cache-first for static assets
 // ═══════════════════════════════════════════════════════════
+//
+// CRITICAL: We do NOT cache navigation requests (HTML pages) or authenticated
+// routes. Caching them causes stale /login redirects to be served even after
+// a successful login, because the SW serves the cached 307 redirect response
+// instead of making a fresh request with the new session cookie.
+//
+// We only cache:
+//   - Static assets (_next/static, icons, sounds, CSS, JS, fonts)
+//   - Public pages (/ and /login)
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   if (event.request.url.includes("/api/")) return;
 
+  const url = new URL(event.request.url);
+  const isNavigation = event.request.mode === "navigate";
+  const isAuthRoute =
+    url.pathname.startsWith("/superadmin") ||
+    url.pathname.startsWith("/admin") ||
+    url.pathname.startsWith("/agent") ||
+    url.pathname.startsWith("/client");
+
+  // For navigations AND authenticated routes: ALWAYS go network-first,
+  // never serve from cache. This ensures cookies are sent and the response
+  // reflects the current auth state.
+  if (isNavigation || isAuthRoute) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Only cache successful 200 responses (not 307 redirects to /login)
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(event.request).then(
+            (cached) => cached || new Response("Hors ligne", { status: 503 })
+          )
+        )
+    );
+    return;
+  }
+
+  // For static assets: stale-while-revalidate (safe to serve from cache)
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const fetchPromise = fetch(event.request)

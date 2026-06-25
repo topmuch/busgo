@@ -1,7 +1,9 @@
 // ═══════════════════════════════════════════════════════════════════
-// Bus Go Agent Service Worker v3 — Offline-First + Push with Sound
+// Bus Go Agent Service Worker v4 — Offline-First + Push with Sound
 // ═══════════════════════════════════════════════════════════════════
-const CACHE_NAME = "busgo-agent-v3";
+// v4: bumped from v3 → v4 to invalidate old cache (was serving stale
+//     /login redirects on navigation, causing auth-redirect loop).
+const CACHE_NAME = "busgo-agent-v4";
 const STATIC_ASSETS = [
   "/agent/trajets",
   "/agent",
@@ -132,13 +134,19 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navigation requests: network-first
+  // Navigation requests: network-first, NEVER cache non-200 responses
+  // (caching 307 redirects to /login was causing the auth-redirect loop)
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          // Only cache successful 200 responses — never cache redirects
+          // (307 to /login) or errors, otherwise the SW will serve the
+          // cached redirect forever and the user can never log in.
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return response;
         })
         .catch(() =>

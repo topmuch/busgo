@@ -23,7 +23,7 @@ import {
   QrCode,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -674,37 +674,40 @@ export default function ClientPage() {
         <InstallBanner />
         <NotificationBanner onGrant={requestNotifPermission} />
 
-        {/* Trip Card */}
-        <Card className="border-l-4 border-l-emerald-500">
-          <CardHeader className="pb-2">
+        {/* Trip Card — design ORDERAN */}
+        <Card className="rounded-xl border-slate-200 shadow-sm overflow-hidden">
+          {/* Mini gradient header */}
+          <div className="bg-gradient-to-br from-[#4A90E2] to-[#87CEEB] px-5 py-4 text-white">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Votre prochain voyage</CardTitle>
-              <Badge variant="secondary" className="capitalize">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-white/80">
+                  Votre prochain voyage
+                </p>
+                <div className="flex items-center gap-1.5 mt-1 text-lg font-bold">
+                  <MapPin className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{t.origin}</span>
+                  <span className="text-white/70 mx-0.5">→</span>
+                  <span className="truncate">{t.destination}</span>
+                </div>
+              </div>
+              <Badge className="bg-white/20 text-white border-0 capitalize hover:bg-white/20">
                 {t.status}
               </Badge>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Route info */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-lg font-bold">
-                <MapPin className="h-5 w-5 text-primary shrink-0" />
-                <span>{t.origin}</span>
-                <span className="text-muted-foreground font-normal mx-1">→</span>
-                <span>{t.destination}</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-muted-foreground pl-7">
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />
-                  {trajetDate}
-                </span>
-                <span>à {t.time}</span>
-                <span>·</span>
-                <span>Bus {t.bus.number}</span>
-                <span>·</span>
-                <span>Place {activeBillet.seatNumber}</span>
-              </div>
+            <div className="flex items-center gap-3 text-xs text-white/90 mt-2 pl-6">
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {trajetDate}
+              </span>
+              <span>à {t.time}</span>
+              <span>·</span>
+              <span>Bus {t.bus.number}</span>
+              <span>·</span>
+              <span>Place {activeBillet.seatNumber}</span>
             </div>
+          </div>
+
+          <CardContent className="space-y-4 p-5">
 
             {/* QR Code */}
             <PassengerQR

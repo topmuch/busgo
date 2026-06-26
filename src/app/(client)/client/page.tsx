@@ -36,6 +36,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { usePWA } from "@/lib/pwa/use-pwa";
 import { useVoiceNotifications } from "@/lib/pwa/use-voice-notifications";
 import { useBusGoSocket } from "@/hooks/use-bus-go-socket";
+import { usePassengerTracking } from "@/hooks/tracking/use-passenger-tracking";
+import { LiveMapModal } from "@/components/tracking/live-map-modal";
+import { Navigation, BatteryWarning } from "lucide-react";
 
 // ── Types ──
 interface TrajetInfo {
@@ -336,6 +339,135 @@ function InstallBanner() {
   );
 }
 
+// ── Live Tracking Button (conditional) ──
+function LiveTrackingButton({
+  billetStatus,
+  departureDate,
+  departureTime,
+  tracking,
+  onOpenMap,
+}: {
+  billetStatus: string;
+  departureDate: string;
+  departureTime: string;
+  tracking: ReturnType<typeof usePassengerTracking>;
+  onOpenMap: () => void;
+}) {
+  // ─── Trigger conditions ───────────────────────────────────────
+  // 1) Billet status must be PENDING (sold) or LATE
+  //    In our schema: "sold" = active billet, not yet boarded
+  //    There's no separate "late" status — late is signaled via socket event
+  const isPendingOrLate = billetStatus === "sold";
+
+  // 2) Current time must be > departure_time - 30min
+  const departure = new Date(departureDate);
+  const [h, m] = departureTime.split(":").map(Number);
+  departure.setHours(h ?? 0, m ?? 0, 0, 0);
+  const now = new Date();
+  const thirtyMinBefore = new Date(departure.getTime() - 30 * 60 * 1000);
+  const isWithinWindow = now > thirtyMinBefore;
+
+  // Hide button if conditions not met
+  if (!isPendingOrLate || !isWithinWindow) return null;
+
+  const { state, startTracking } = tracking;
+
+  // ─── Stopped / denied / error states ──────────────────────────
+  if (state.status === "denied") {
+    return (
+      <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-3 text-center">
+        <p className="text-xs text-amber-800 dark:text-amber-200">
+          📍 Fonctionnalité indisponible sans GPS
+        </p>
+        <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-0.5">
+          Autorisez la géolocalisation pour partager votre position avec l'agent
+        </p>
+      </div>
+    );
+  }
+
+  if (state.status === "stopped" && state.stopReason === "departed_reject") {
+    return (
+      <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-800 p-3 text-center">
+        <p className="text-xs text-red-800 dark:text-red-200">
+          🚌 Le bus est déjà parti
+        </p>
+        <p className="text-[10px] text-red-700 dark:text-red-300 mt-0.5">
+          {state.error ?? "Partage arrêté."}
+        </p>
+      </div>
+    );
+  }
+
+  if (state.status === "stopped") {
+    return (
+      <Button
+        variant="outline"
+        className="w-full gap-2 border-orange-400 text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+        onClick={() => startTracking()}
+      >
+        <Navigation className="h-4 w-4" />
+        Reprendre le partage live
+      </Button>
+    );
+  }
+
+  // ─── Active state: show status + open map ─────────────────────
+  if (state.status === "active" || state.status === "requesting") {
+    return (
+      <div className="space-y-2">
+        <Button
+          className="w-full gap-2 bg-[#F97316] hover:bg-[#EA580C] text-white"
+          onClick={onOpenMap}
+        >
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+          </span>
+          {state.status === "requesting" ? "Acquisition GPS..." : "Position live active"}
+          {state.etaMinutes !== undefined && (
+            <span className="ml-1 text-xs opacity-90">· {state.etaMinutes} min</span>
+          )}
+        </Button>
+
+        {state.highBatteryUsage && (
+          <div className="flex items-center gap-1.5 text-[10px] text-amber-700 dark:text-amber-300 px-1">
+            <BatteryWarning className="h-3 w-3" />
+            <span>Consommation GPS élevée détectée</span>
+          </div>
+        )}
+
+        {state.agentMessage && (
+          <div
+            className={`rounded-lg p-2.5 text-xs ${
+              state.agentMessage.type === "wait"
+                ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800"
+                : "bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800"
+            }`}
+          >
+            <p className="font-medium">
+              {state.agentMessage.type === "wait" ? "✅ L'agent vous attend" : "❌ Le bus part"}
+            </p>
+            <p className="mt-0.5">{state.agentMessage.message}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── Idle state: show start button ────────────────────────────
+  return (
+    <Button
+      variant="outline"
+      className="w-full gap-2 border-orange-400 text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+      onClick={() => startTracking()}
+    >
+      <Navigation className="h-4 w-4" />
+      📍 Partager ma position live
+    </Button>
+  );
+}
+
 // ── Main Client Page ──
 export default function ClientPage() {
   const { data: session } = useSession();
@@ -352,6 +484,18 @@ export default function ClientPage() {
 
   // Socket.io
   const { notifications, socketRef } = useBusGoSocket(tenantId);
+
+  // ─── Live GPS Tracking ──────────────────────────────────────
+  const [liveMapOpen, setLiveMapOpen] = useState(false);
+
+  // Only initialize tracking hook when we have an active billet
+  const activeBilletForTracking = data?.activeBillet;
+  const tracking = usePassengerTracking({
+    bookingId: activeBilletForTracking?.id ?? "",
+    tripId: activeBilletForTracking?.trajet.id ?? "",
+    clientId: userId ?? undefined,
+    clientName: session?.user?.name ?? undefined,
+  });
 
   // Notification permission
   const requestNotifPermission = useCallback(async () => {
@@ -584,8 +728,26 @@ export default function ClientPage() {
             <p className="text-center text-xs text-muted-foreground">
               {t.tenant.name} · {t.price.toLocaleString("fr-FR")} FCFA
             </p>
+
+            {/* ─── Live GPS Tracking Button ─────────────────────── */}
+            <LiveTrackingButton
+              billetStatus={activeBillet.status}
+              departureDate={t.date}
+              departureTime={t.time}
+              tracking={tracking}
+              onOpenMap={() => setLiveMapOpen(true)}
+            />
           </CardContent>
         </Card>
+
+        {/* ─── Live Map Modal (full-screen) ─────────────────────── */}
+        <LiveMapModal
+          open={liveMapOpen}
+          onClose={() => setLiveMapOpen(false)}
+          state={tracking.state}
+          onStop={() => tracking.stopTracking("manual")}
+          passengerName={session?.user?.name}
+        />
       </div>
     );
   }

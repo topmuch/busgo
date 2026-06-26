@@ -55,7 +55,9 @@ async function tryOsrm(
     clearTimeout(timeout);
 
     if (!res.ok) return null;
-    const data = await res.json();
+    const data = (await res.json()) as {
+      routes?: Array<{ distance?: number; duration?: number }>;
+    };
     if (!data?.routes?.[0]) return null;
 
     const route = data.routes[0];

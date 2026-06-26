@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -14,6 +14,8 @@ import {
   Users,
   UserX,
   MapPin,
+  Navigation,
+  Crosshair,
 } from "lucide-react";
 import { SeatMap, BilletType } from "@/components/agent/seat-map";
 import { QRScanner } from "@/components/agent/qr-scanner";
@@ -24,7 +26,10 @@ import {
   RetardNotification,
 } from "@/components/agent/retard-notifications";
 import { VocalSettingsPanel } from "@/components/agent/vocal-settings-panel";
+import { PassengerLocationModal } from "@/components/tracking/passenger-location-modal";
+import { AggregatedTrackingMap } from "@/components/tracking/aggregated-tracking-map";
 import { useBusGoSocket } from "@/hooks/use-bus-go-socket";
+import { useAgentTracking } from "@/hooks/tracking/use-agent-tracking";
 import { useVocalAlerts } from "@/hooks/use-vocal-alerts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -84,15 +89,93 @@ export default function EmbarquementPage() {
   const [departDialogOpen, setDepartDialogOpen] = useState(false);
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* ---------- socket ---------- */
-  const {
-    isConnected,
-    joinTrajet,
-    socketRef,
-    driverRetards,
-    billetScans,
-    trajetStatuses,
-  } = useBusGoSocket(session?.user?.tenantId);
+  /* ─────────────── Live GPS Tracking (agent) ─────────────── */
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  const [aggregatedMapOpen, setAggregatedMapOpen] = useState(false);
+  const [quayPosition, setQuayPosition] = useState<{ lat: number; lng: number } | undefined>();
+
+  const agentTracking = useAgentTracking(trajetId, session?.user?.tenantId);
+
+  // Build clientId → bookingId map (for matching retard notifs to live positions)
+  const clientToBookingMap = useMemo(() => {
+    const m = new Map<string, string>();
+    if (trajet) {
+      for (const b of trajet.billets) {
+        if (b.client?.id) m.set(b.client.id, b.id);
+      }
+    }
+    // Also include from live locations
+    for (const loc of agentTracking.state.locations.values()) {
+      if (loc.clientId && loc.bookingId) m.set(loc.clientId, loc.bookingId);
+    }
+    return m;
+  }, [trajet, agentTracking.state.locations]);
+
+  // Selected passenger location (for modal)
+  const selectedLocation = selectedBookingId
+    ? agentTracking.state.locations.get(selectedBookingId) ?? null
+    : null;
+
+  // Set quay position via browser geolocation (agent is at the quay)
+  const handleSetQuayPosition = useCallback(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast.error("Géolocalisation indisponible");
+      return;
+    }
+    toast.info("Acquisition de la position du quai...");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setQuayPosition({ lat: latitude, lng: longitude });
+        agentTracking.setQuayPosition(latitude, longitude, "Quai de départ");
+        toast.success("Position du quai enregistrée", {
+          description: "Les ETA seront calculés depuis cette position.",
+        });
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          toast.error("Permission GPS refusée", {
+            description: "Autorisez la géolocalisation pour définir le quai.",
+          });
+        } else {
+          toast.error("Impossible d'obtenir votre position");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }, [agentTracking]);
+
+  // Auto-set quay position on first load (best-effort)
+  useEffect(() => {
+    if (!quayPosition && trajet && trajet.status === "boarding") {
+      // Try once silently
+      if (typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            setQuayPosition({ lat: latitude, lng: longitude });
+            agentTracking.setQuayPosition(latitude, longitude, "Quai de départ");
+          },
+          () => {
+            // Silent fail — agent can set manually
+          },
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+        );
+      }
+    }
+  }, [trajet?.status]);
+
+  // Show toast when new passenger starts sharing
+  useEffect(() => {
+    if (agentTracking.state.locations.size === 0) return;
+    // Check for static warnings
+    for (const warning of agentTracking.state.staticWarnings) {
+      toast.warning(warning.message, {
+        description: "Risque d'abandon",
+        duration: 10000,
+      });
+    }
+  }, [agentTracking.state.staticWarnings]);
 
   /* ---------- vocal alerts ---------- */
   const vocal = useVocalAlerts(socketRef);
@@ -616,6 +699,86 @@ export default function EmbarquementPage() {
       <RetardNotifications
         notifications={retardNotifs}
         onReply={handleRetardReply}
+        liveLocations={agentTracking.state.locations}
+        clientToBookingMap={clientToBookingMap}
+        onOpenPassengerLocation={(bookingId) => setSelectedBookingId(bookingId)}
+        onOpenAggregatedMap={() => setAggregatedMapOpen(true)}
+      />
+
+      {/* ============ Set Quay Position FAB ============ */}
+      {!quayPosition && (
+        <button
+          type="button"
+          onClick={handleSetQuayPosition}
+          className="fixed top-20 left-4 z-40 flex items-center gap-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 text-xs font-semibold shadow-lg transition-all active:scale-95"
+          title="Définir la position du quai (pour calcul ETA)"
+        >
+          <Crosshair className="size-3.5" />
+          Définir le quai
+        </button>
+      )}
+
+      {/* ============ Passenger Location Modal (Agent) ============ */}
+      <PassengerLocationModal
+        location={selectedLocation}
+        open={selectedBookingId !== null}
+        onClose={() => setSelectedBookingId(null)}
+        onWait={(bookingId) => {
+          agentTracking.sendWaitMessage(bookingId);
+          toast.success("Message envoyé", {
+            description: "Le passager a été notifié que vous l'attendez.",
+          });
+        }}
+        onLeave={async (bookingId) => {
+          agentTracking.sendLeaveMessage(bookingId);
+          // Persist NO_SHOW (absent) status via REST API
+          try {
+            const res = await fetch(
+              `/api/agent/billets/${bookingId}/status?XTransformPort=3000`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: "absent" }),
+              }
+            );
+            if (res.ok) {
+              toast.success("Bus parti", {
+                description: "Le billet a été marqué NO_SHOW.",
+              });
+              // Refresh trajet to reflect status change in seat map
+              fetchTrajet();
+            } else {
+              toast.error("Billet non mis à jour", {
+                description: "Le passager a été notifié mais le statut n'a pas pu être persisté.",
+              });
+            }
+          } catch {
+            toast.error("Erreur réseau", {
+              description: "Le statut du billet n'a pas pu être mis à jour.",
+            });
+          }
+        }}
+        quayPosition={
+          quayPosition
+            ? { lat: quayPosition.lat, lng: quayPosition.lng, label: "Quai de départ" }
+            : undefined
+        }
+      />
+
+      {/* ============ Aggregated Tracking Map (3+ passengers) ============ */}
+      <AggregatedTrackingMap
+        open={aggregatedMapOpen}
+        onClose={() => setAggregatedMapOpen(false)}
+        locations={Array.from(agentTracking.state.locations.values())}
+        quayPosition={
+          quayPosition
+            ? { lat: quayPosition.lat, lng: quayPosition.lng, label: "Quai de départ" }
+            : undefined
+        }
+        onSelectPassenger={(bookingId) => {
+          setAggregatedMapOpen(false);
+          setSelectedBookingId(bookingId);
+        }}
       />
     </div>
   );

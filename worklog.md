@@ -175,3 +175,32 @@ Work Log:
 - Read existing socket server (mini-services/bus-go-socket), client page, agent embarquement page, prisma schema
 - Installed leaflet@1.9.4 + react-leaflet@5.0.0 + @types/leaflet
 - Plan: 12 sub-tasks (backend socket → API ETA → hook → 3 components → 2 page integrations → tests → RGPD doc)
+
+Work Log (cont.):
+- Created tracking-store.ts (RAM-only Map store, 45min TTL sweeper, validation middleware)
+- Created eta-service.ts (OSRM + Haversine fallback, 25s cache)
+- Extended bus-go-socket/index.ts with 8 GPS tracking events:
+  * set_quay_position, start_tracking, gps_update, stop_tracking
+  * agent_cancel_tracking (wait/leave), subscribe_trip_tracking
+  * unsubscribe_trip_tracking, get_aggregated_tracking
+- Created /api/tracking/quay POST endpoint
+- Created src/lib/tracking/geo-utils.ts (haversine, formatters)
+- Created src/hooks/tracking/use-passenger-tracking.ts (watchPosition, background detection, battery optimization, high-accuracy switch <500m)
+- Created src/hooks/tracking/use-agent-tracking.ts (subscribe to trip_tracking room, locations Map, static warnings)
+- Created src/components/tracking/leaflet-map.tsx (lazy Leaflet + OSM tiles, passenger/bus/quay markers)
+- Created src/components/tracking/live-map-modal.tsx (full-screen passenger modal)
+- Created src/components/tracking/live-position-pill.tsx (orange pulse / grey stale / red static)
+- Created src/components/tracking/passenger-location-modal.tsx (agent overlay with mini-map + actions)
+- Created src/components/tracking/aggregated-tracking-map.tsx (3+ passengers multi-view)
+- Updated src/app/(client)/client/page.tsx with LiveTrackingButton + LiveMapModal integration
+- Updated src/components/agent/retard-notifications.tsx with LivePositionPill + aggregated view button
+- Updated src/app/(agent)/agent/embarquement/[trajetId]/page.tsx with useAgentTracking + modals + quay FAB
+- Created 50 unit tests in mini-services/bus-go-socket/__tests__/tracking.test.ts
+- Created RGPD documentation at download/RGPD-GPS-Live-Tracking.md
+
+Stage Summary:
+- 12 new files (1 store, 1 service, 1 API route, 2 hooks, 5 components, 1 utils, 1 test file, 1 doc)
+- 3 updated files (socket index, client page, agent embarquement, retard-notifications)
+- 50 new tests passing (163/163 total, 0 TS errors, 0 lint errors)
+- Privacy by Design: 0 SQL/NoSQL writes for coords, 45min TTL sweeper, audit log without coords
+- All edge cases covered: permission denied, departed reject, static detection, multi-passenger aggregated view

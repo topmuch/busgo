@@ -42,6 +42,7 @@ import { Navigation, BatteryWarning, Gift } from "lucide-react";
 import { useCompensations } from "@/hooks/modules/use-compensations";
 import { VoucherCard } from "@/components/compensation/voucher-card";
 import { SponsoredBannerList } from "@/components/sponsor/sponsored-banner-list";
+import { usePushNotifications } from "@/hooks/notifications/use-push-notifications";
 
 // ── Types ──
 interface TrajetInfo {
@@ -527,21 +528,21 @@ export default function ClientPage() {
     clientName: session?.user?.name ?? undefined,
   });
 
-  // Notification permission
+  // ─── Push notification subscription (web-push VAPID) ──────────
+  const pushNotif = usePushNotifications({
+    autoSubscribe: true,
+    onSubscribed: () => console.log("[PUSH] Subscribed to notifications"),
+  });
+
+  // Notification permission (legacy banner — kept for UX)
   const requestNotifPermission = useCallback(async () => {
-    if ("Notification" in window) {
-      const perm = await Notification.requestPermission();
-      if (perm === "granted") {
-        // Register for push (in a real prod, would use a push subscription endpoint)
-        if ("serviceWorker" in navigator) {
-          const reg = await navigator.serviceWorker.ready;
-          await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-          });
-        }
-      }
+    // Delegate to the new push subscription hook
+    if (pushNotif.isSupported) {
+      await pushNotif.subscribe();
+    } else if ("Notification" in window) {
+      await Notification.requestPermission();
     }
-  }, []);
+  }, [pushNotif]);
 
   // Fetch client data
   const fetchClientData = useCallback(async () => {

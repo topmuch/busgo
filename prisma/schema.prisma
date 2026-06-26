@@ -81,6 +81,26 @@ model User {
   drivenTrajets   Trajet[] @relation("TrajetDriver")
   auditLogs       AuditLog[]
   compensations   Compensation[] @relation("ClientCompensations")
+  pushSubscriptions PushSubscription[]
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE NOTIFICATIONS PUSH (web-push VAPID)
+// ═══════════════════════════════════════════════════════════════
+// Stocke les abonnements Push par utilisateur (1 user = N devices)
+// ═══════════════════════════════════════════════════════════════
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 // Role values: superadmin, admin, agent, client

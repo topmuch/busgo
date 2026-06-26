@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 import { validateBody, schemas } from "@/lib/api-validation";
+import { notifyUser } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
   try {
@@ -94,6 +95,20 @@ export async function POST(req: NextRequest) {
         },
       },
     });
+
+    // ─── Notify the client (push + SMS fallback) ─────────────────
+    notifyUser({
+      userId: updatedBillet.client.id,
+      tenantId,
+      pushPayload: {
+        title: "Embarquement confirmé ✅",
+        body: `Bienvenue à bord ! Siège ${updatedBillet.seatNumber}.`,
+        type: "scan",
+        ttsMessage: `Embarquement confirmé. Vous êtes à bord, siège ${updatedBillet.seatNumber}.`,
+        tag: `billet-${updatedBillet.id}`,
+      },
+      smsText: `Bus Go: Embarquement confirme. Siege ${updatedBillet.seatNumber}. Bon voyage !`,
+    }).catch((err) => console.error("[NOTIFY_SCAN_BOARDED]", err));
 
     return NextResponse.json({
       success: true,

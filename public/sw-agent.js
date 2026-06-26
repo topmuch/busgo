@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════
 // v4: bumped from v3 → v4 to invalidate old cache (was serving stale
 //     /login redirects on navigation, causing auth-redirect loop).
-const CACHE_NAME = "busgo-agent-v4";
+const CACHE_NAME = "busgo-agent-v5"; // bumped from v4 → v5 to enable web-push integration
 const STATIC_ASSETS = [
   "/agent/trajets",
   "/agent",

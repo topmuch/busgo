@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { validateBody, schemas } from "@/lib/api-validation";
+import { notifyUser } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
   try {
@@ -99,6 +100,22 @@ export async function POST(req: NextRequest) {
         client: { select: { id: true, name: true, phone: true } },
       },
     });
+
+    // ─── Trigger push notification (fire-and-forget) ─────────────
+    // Don't block the HTTP response on push delivery latency (~500ms-2s)
+    notifyUser({
+      userId: client.id,
+      tenantId: session.user.tenantId,
+      pushPayload: {
+        title: "Billet confirmé ✅",
+        body: `Siège ${seatNumber} — ${trajet.origin} → ${trajet.destination} à ${trajet.time}`,
+        type: "boarding",
+        ttsMessage: `Votre billet pour ${trajet.destination} est confirmé. Siège ${seatNumber}. Départ à ${trajet.time}.`,
+        tag: `billet-${billet.id}`,
+        requireInteraction: false,
+      },
+      smsText: `Bus Go: Billet confirmé. Siege ${seatNumber}, ${trajet.origin} → ${trajet.destination} a ${trajet.time}. Code: ${ticketNumber}`,
+    }).catch((err) => console.error("[NOTIFY_BILLET_CREATED]", err));
 
     return NextResponse.json(updated, { status: 201 });
   } catch (error) {

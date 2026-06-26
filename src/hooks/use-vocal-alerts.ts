@@ -239,8 +239,13 @@ export function useVocalAlerts(socketRef: React.RefObject<Socket | null>) {
     if (!cfg.enabled) return;
     if (typeof window === "undefined" || typeof window.speechSynthesis === "undefined") return;
 
-    const doSpeak = (voices: SpeechSynthesisVoice[]) => {
-      // CANCEL all previous utterances to avoid stacking
+    // A1.04 — Retry queue with exponential backoff
+    // Chrome bug: cancel() is async, may cancel the next speak() if called too fast.
+    // Retry on errors: canceled, interrupted, network. Max 3 attempts.
+    const MAX_TTS_ATTEMPTS = 3;
+
+    const doSpeak = (voices: SpeechSynthesisVoice[], attempt: number) => {
+      // Délai 50ms après cancel() pour éviter la race Chrome
       window.speechSynthesis.cancel();
 
       const utterance = new SpeechSynthesisUtterance(text);
@@ -263,14 +268,44 @@ export function useVocalAlerts(socketRef: React.RefObject<Socket | null>) {
         setIsSpeaking(false);
         setLastSpoken("");
       };
-      utterance.onerror = () => {
+      utterance.onerror = (e) => {
         speakingRef.current = false;
         setIsSpeaking(false);
         setLastSpoken("");
+
+        const retryableErrors = ["canceled", "interrupted", "network", "synthesis-failed"];
+        if (retryableErrors.includes(e.error) && attempt < MAX_TTS_ATTEMPTS) {
+          // Backoff exponentiel : 200ms, 400ms, 800ms
+          const delay = 200 * Math.pow(2, attempt);
+          console.warn(`[TTS] Retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_TTS_ATTEMPTS}, error: ${e.error})`);
+          setTimeout(() => {
+            const v = window.speechSynthesis.getVoices();
+            if (v.length > 0) doSpeak(v, attempt + 1);
+          }, delay);
+        } else if (attempt >= MAX_TTS_ATTEMPTS) {
+          // Fallback visible — alerte l'agent que l'annonce a échoué
+          console.error(`[TTS] Failed after ${MAX_TTS_ATTEMPTS} attempts:`, text);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("busgo-toast", {
+              detail: {
+                title: "Alerte non prononcée",
+                description: text,
+                variant: "destructive",
+              },
+            }));
+          }
+        }
       };
 
       setLastSpoken(text);
-      window.speechSynthesis.speak(utterance);
+      // Délai 50ms pour éviter que cancel() n'annule speak()
+      setTimeout(() => {
+        try {
+          window.speechSynthesis.speak(utterance);
+        } catch (err) {
+          console.error("[TTS] speak() threw:", err);
+        }
+      }, 50);
     };
 
     const voices = window.speechSynthesis.getVoices();
@@ -278,20 +313,20 @@ export function useVocalAlerts(socketRef: React.RefObject<Socket | null>) {
       // Voices not loaded yet — wait for voiceschanged event then retry once
       const handler = () => {
         const v = window.speechSynthesis.getVoices();
-        if (v.length > 0) doSpeak(v);
+        if (v.length > 0) doSpeak(v, 0);
         window.speechSynthesis.removeEventListener("voiceschanged", handler);
       };
       window.speechSynthesis.addEventListener("voiceschanged", handler);
       // Safety timeout: try anyway after 500ms
       setTimeout(() => {
         const v = window.speechSynthesis.getVoices();
-        if (v.length > 0) doSpeak(v);
+        if (v.length > 0) doSpeak(v, 0);
         window.speechSynthesis.removeEventListener("voiceschanged", handler);
       }, 500);
       return;
     }
 
-    doSpeak(voices);
+    doSpeak(voices, 0);
   }, []);
 
   // Keep speakRef in sync so effect closures (Service Worker message handler,
@@ -409,11 +444,17 @@ export function useVocalAlerts(socketRef: React.RefObject<Socket | null>) {
       if (!cfg.enabled) return;
       if (!cfg.alerts[alertConfigKey[alertType]]) return;
 
-      // Dedup check
-      if (isDeduped(alertType)) return;
+      // Dedup check — include billetId so multiple passagers aren't merged
+      const dedupKey = `${alertType}:${(payload.billetId ?? payload.clientId ?? "") as string}`;
+      if (isDeduped(dedupKey)) return;
 
-      // Only speak if page is visible (or forceSound is on for critical alerts)
-      if (document.visibilityState !== "visible") return;
+      // A1.02 — Speak even when tab hidden for CRITICAL alert types
+      // (push notifications will play the MP3 sound, but TTS adds context)
+      const CRITICAL_ALERTS = ["passager:manquant", "timer:2min", "message:retard"];
+      const isCritical = CRITICAL_ALERTS.includes(alertType);
+      if (document.visibilityState !== "visible" && !isCritical && !cfg.forceSound) {
+        return;
+      }
 
       const message = buildMessage(alertType, payload);
       if (message) speakWithChime(message);

@@ -239,40 +239,59 @@ export function useVocalAlerts(socketRef: React.RefObject<Socket | null>) {
     if (!cfg.enabled) return;
     if (typeof window === "undefined" || typeof window.speechSynthesis === "undefined") return;
 
+    const doSpeak = (voices: SpeechSynthesisVoice[]) => {
+      // CANCEL all previous utterances to avoid stacking
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "fr-FR";
+      utterance.rate = cfg.speed;
+      utterance.volume = cfg.forceSound ? 1.0 : cfg.volume;
+      utterance.pitch = 1.0;
+
+      // Prefer a French voice (local first, then any French)
+      const frVoice = voices.find((v) => v.lang.startsWith("fr") && v.localService)
+        || voices.find((v) => v.lang.startsWith("fr"));
+      if (frVoice) utterance.voice = frVoice;
+
+      utterance.onstart = () => {
+        speakingRef.current = true;
+        setIsSpeaking(true);
+      };
+      utterance.onend = () => {
+        speakingRef.current = false;
+        setIsSpeaking(false);
+        setLastSpoken("");
+      };
+      utterance.onerror = () => {
+        speakingRef.current = false;
+        setIsSpeaking(false);
+        setLastSpoken("");
+      };
+
+      setLastSpoken(text);
+      window.speechSynthesis.speak(utterance);
+    };
+
     const voices = window.speechSynthesis.getVoices();
-    if (voices.length === 0) return;
+    if (voices.length === 0) {
+      // Voices not loaded yet — wait for voiceschanged event then retry once
+      const handler = () => {
+        const v = window.speechSynthesis.getVoices();
+        if (v.length > 0) doSpeak(v);
+        window.speechSynthesis.removeEventListener("voiceschanged", handler);
+      };
+      window.speechSynthesis.addEventListener("voiceschanged", handler);
+      // Safety timeout: try anyway after 500ms
+      setTimeout(() => {
+        const v = window.speechSynthesis.getVoices();
+        if (v.length > 0) doSpeak(v);
+        window.speechSynthesis.removeEventListener("voiceschanged", handler);
+      }, 500);
+      return;
+    }
 
-    // CANCEL all previous utterances to avoid stacking
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "fr-FR";
-    utterance.rate = cfg.speed;
-    utterance.volume = cfg.forceSound ? 1.0 : cfg.volume;
-    utterance.pitch = 1.0;
-
-    // Prefer a French voice (local first, then any French)
-    const frVoice = voices.find((v) => v.lang.startsWith("fr") && v.localService)
-      || voices.find((v) => v.lang.startsWith("fr"));
-    if (frVoice) utterance.voice = frVoice;
-
-    utterance.onstart = () => {
-      speakingRef.current = true;
-      setIsSpeaking(true);
-    };
-    utterance.onend = () => {
-      speakingRef.current = false;
-      setIsSpeaking(false);
-      setLastSpoken("");
-    };
-    utterance.onerror = () => {
-      speakingRef.current = false;
-      setIsSpeaking(false);
-      setLastSpoken("");
-    };
-
-    setLastSpoken(text);
-    window.speechSynthesis.speak(utterance);
+    doSpeak(voices);
   }, []);
 
   // Keep speakRef in sync so effect closures (Service Worker message handler,

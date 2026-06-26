@@ -35,8 +35,7 @@ export default async function AdminLayout({
     { href: "/admin/compensations", label: "Compensations", icon: "Ticket" },
     { href: "/admin/offres", label: "Offres sponsorisées", icon: "Ticket" },
     { href: "/admin/rapports", label: "Rapports", icon: "FileBarChart2" },
-    { href: "/admin/settings", label: "Paramètres", icon: "Cog" },
-    { href: "/admin/users", label: "Utilisateurs", icon: "Users" },
+    { href: "/admin/settings", label: "Paramètres & Équipe", icon: "Cog" },
   ];
 
   return (

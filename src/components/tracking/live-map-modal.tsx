@@ -157,7 +157,7 @@ export function LiveMapModal({
           <div className="text-right">
             <p className="text-xs text-muted-foreground">Distance</p>
             <p className="text-sm font-semibold">
-              {formatDistance(state.distanceMeters ?? state.distanceToQuay)}
+              {formatDistance(state.distanceMeters)}
             </p>
           </div>
         </div>

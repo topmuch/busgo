@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 
-const VALID_STATUSES = ["absent", "boarded", "sold"] as const;
+const VALID_STATUSES = ["absent", "boarded", "sold", "cancelled"] as const;
 
 export async function PATCH(
   req: NextRequest,
@@ -29,7 +29,7 @@ export async function PATCH(
 
     if (!status || !VALID_STATUSES.includes(status)) {
       return NextResponse.json(
-        { error: "Statut invalide. Valeurs acceptées: absent, boarded, sold" },
+        { error: "Statut invalide. Valeurs acceptées: absent, boarded, sold, cancelled" },
         { status: 400 }
       );
     }

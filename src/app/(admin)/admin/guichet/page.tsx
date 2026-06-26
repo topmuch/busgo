@@ -330,7 +330,7 @@ export default function GuichetPage() {
           <Button
             size="lg"
             className="w-full gap-2 text-base"
-            disabled={loading || !selectedTrajetId}
+            disabled={loading}
             onClick={handleSubmit}
           >
             {loading ? (
@@ -338,7 +338,7 @@ export default function GuichetPage() {
             ) : (
               <Ticket className="h-4 w-4" />
             )}
-            {loading ? "Génération en cours..." : "Générer le QR Code"}
+            {loading ? "Génération en cours..." : "Vendre le billet"}
           </Button>
         </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Phone, Clock, UserX } from "lucide-react";
+import { Phone, Clock, UserX, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -24,6 +34,8 @@ interface MissingPassengerModalProps {
   onClose: () => void;
   onMarkAbsent: (billetId: string) => void;
   onMarkArriving: (billetId: string, minutes: number) => void;
+  /** Called when user clicks "Supprimer" — typically PATCHes status to "cancelled" */
+  onDelete?: (billetId: string) => void;
 }
 
 function getReliabilityBadge(score: number | null) {
@@ -67,12 +79,15 @@ export function MissingPassengerModal({
   onClose,
   onMarkAbsent,
   onMarkArriving,
+  onDelete,
 }: MissingPassengerModalProps) {
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleClose = useCallback(() => {
     setCountdown(null);
+    setDeleteDialogOpen(false);
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
       countdownRef.current = null;
@@ -208,8 +223,53 @@ export function MissingPassengerModal({
             <UserX className="size-5" />
             <span className="font-medium">Ne viendra pas</span>
           </Button>
+
+          {/* Supprimer (cancel billet) */}
+          {onDelete && (
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full justify-start gap-3 h-auto py-3 border-slate-300 text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+              )}
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              <Trash2 className="size-5" />
+              <span className="font-medium">Supprimer le billet</span>
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce billet ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action va marquer le billet de{" "}
+              <strong>{billet.client.name}</strong> (siège {billet.seatNumber})
+              comme <strong>annulé</strong>. Le siège redeviendra vacant.
+              Cette action est réversible (le billet reste en base).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-slate-700 hover:bg-slate-800 text-white"
+              onClick={() => {
+                if (billet && onDelete) {
+                  onDelete(billet.id);
+                  setDeleteDialogOpen(false);
+                  handleClose();
+                }
+              }}
+            >
+              <Trash2 className="size-4 mr-1" />
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

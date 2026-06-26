@@ -177,6 +177,15 @@ export default function EmbarquementPage() {
     }
   }, [agentTracking.state.staticWarnings]);
 
+  /* ---------- socket (for legacy retard/billet-scan/trajet-status events) ---------- */
+  const {
+    socketRef,
+    joinTrajet,
+    driverRetards,
+    billetScans,
+    trajetStatuses,
+  } = useBusGoSocket(session?.user?.tenantId);
+
   /* ---------- vocal alerts ---------- */
   const vocal = useVocalAlerts(socketRef);
 
@@ -286,9 +295,18 @@ export default function EmbarquementPage() {
   const statusLabel: Record<string, string> = {
     scheduled: "Planifié",
     boarding: "Embarquement en cours",
-    departed: "En route",
+    departed: "Bus parti",
     arrived: "Arrivé",
     cancelled: "Annulé",
+  };
+
+  // Status color mapping: boarding=GREEN (en cours), departed=RED (bus parti, action requise)
+  const statusBadgeClass: Record<string, string> = {
+    scheduled: "bg-slate-100 text-slate-700 border-slate-300",
+    boarding: "bg-emerald-100 text-emerald-700 border-emerald-300",
+    departed: "bg-red-100 text-red-700 border-red-300",
+    arrived: "bg-blue-100 text-blue-700 border-blue-300",
+    cancelled: "bg-slate-100 text-slate-500 border-slate-300 line-through",
   };
 
   /* ================================================================ */
@@ -353,6 +371,42 @@ export default function EmbarquementPage() {
           };
         });
         toast.success("Passager marqué absent");
+      } catch {
+        toast.error("Erreur réseau");
+      }
+    },
+    []
+  );
+
+  /* --- Delete (cancel) billet --- */
+  const handleDeleteBillet = useCallback(
+    async (billetId: string) => {
+      try {
+        const res = await fetch(
+          `/api/agent/billets/${billetId}/status?XTransformPort=3000`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "cancelled" }),
+          }
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          toast.error(err.error || "Erreur lors de la suppression");
+          return;
+        }
+        setTrajet((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            billets: prev.billets.map((b) =>
+              b.id === billetId ? { ...b, status: "cancelled" as const } : b
+            ),
+          };
+        });
+        toast.success("Billet supprimé", {
+          description: "Le siège est maintenant vacant.",
+        });
       } catch {
         toast.error("Erreur réseau");
       }
@@ -518,7 +572,7 @@ export default function EmbarquementPage() {
               />
               <Badge
                 variant="outline"
-                className="text-[10px] h-5 px-1.5 shrink-0"
+                className={`text-[10px] h-5 px-1.5 shrink-0 border ${statusBadgeClass[trajet.status] ?? ""}`}
               >
                 {statusLabel[trajet.status] || trajet.status}
               </Badge>
@@ -657,6 +711,7 @@ export default function EmbarquementPage() {
         onClose={() => setSelectedBillet(null)}
         onMarkAbsent={handleMarkAbsent}
         onMarkArriving={handleMarkArriving}
+        onDelete={handleDeleteBillet}
       />
 
       {/* ============ Depart Confirmation Dialog ============ */}

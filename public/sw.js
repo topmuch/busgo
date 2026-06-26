@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════
 // Bus Go Client Service Worker v2 — Push with Sound + TTS Actions
 // ═══════════════════════════════════════════════════════════════════
-const CACHE_NAME = "busgo-v3"; // bumped from v2 → v3 to invalidate old cache (was serving stale /login redirects)
+const CACHE_NAME = "busgo-v4"; // bumped from v3 → v4 to enable web-push integration
 const STATIC_ASSETS = [
   "/client",
   "/login",

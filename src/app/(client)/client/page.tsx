@@ -38,7 +38,10 @@ import { useVoiceNotifications } from "@/lib/pwa/use-voice-notifications";
 import { useBusGoSocket } from "@/hooks/use-bus-go-socket";
 import { usePassengerTracking } from "@/hooks/tracking/use-passenger-tracking";
 import { LiveMapModal } from "@/components/tracking/live-map-modal";
-import { Navigation, BatteryWarning } from "lucide-react";
+import { Navigation, BatteryWarning, Gift } from "lucide-react";
+import { useCompensations } from "@/hooks/modules/use-compensations";
+import { VoucherCard } from "@/components/compensation/voucher-card";
+import { SponsoredBannerList } from "@/components/sponsor/sponsored-banner-list";
 
 // ── Types ──
 interface TrajetInfo {
@@ -468,6 +471,33 @@ function LiveTrackingButton({
   );
 }
 
+// ── Vouchers Section (Compensation Retard Manqué) ──
+function ClientVouchersSection() {
+  const { compensations, loading, totalValueFcfa, active } = useCompensations();
+
+  if (loading) return null;
+  if (compensations.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+        <Gift className="h-4 w-4 text-emerald-600" />
+        Mes bons d&apos;achat
+        {active > 0 && (
+          <Badge className="bg-emerald-100 text-emerald-700 border-0 ml-1 text-[10px]">
+            {active} actif{active > 1 ? "s" : ""} · {totalValueFcfa.toLocaleString("fr-FR")} FCFA
+          </Badge>
+        )}
+      </h3>
+      <div className="space-y-2">
+        {compensations.slice(0, 5).map((c) => (
+          <VoucherCard key={c.id} compensation={c} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Client Page ──
 export default function ClientPage() {
   const { data: session } = useSession();
@@ -674,6 +704,9 @@ export default function ClientPage() {
         <InstallBanner />
         <NotificationBanner onGrant={requestNotifPermission} />
 
+        {/* ─── Sponsored Offers ─────────────────────────────────── */}
+        <SponsoredBannerList pwa="client" compact />
+
         {/* Trip Card — design ORDERAN */}
         <Card className="rounded-xl border-slate-200 shadow-sm overflow-hidden">
           {/* Mini gradient header */}
@@ -795,6 +828,12 @@ export default function ClientPage() {
 
       <InstallBanner />
       <NotificationBanner onGrant={requestNotifPermission} />
+
+      {/* ─── Sponsored Offers (Multi-PWA module) ──────────────── */}
+      <SponsoredBannerList pwa="client" compact />
+
+      {/* ─── Vouchers (Compensation Retard Manqué module) ─────── */}
+      <ClientVouchersSection />
 
       {/* No trip message */}
       <div className="text-center py-10 space-y-3">

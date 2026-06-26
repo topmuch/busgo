@@ -32,6 +32,8 @@ export default async function AdminLayout({
     { href: "/admin/buses", label: "Bus", icon: "Bus" },
     { href: "/admin/trajets", label: "Trajets", icon: "Ticket" },
     { href: "/admin/voix", label: "Voix & Annonces", icon: "Mic" },
+    { href: "/admin/compensations", label: "Compensations", icon: "Ticket" },
+    { href: "/admin/offres", label: "Offres sponsorisées", icon: "Ticket" },
     { href: "/admin/rapports", label: "Rapports", icon: "FileBarChart2" },
     { href: "/admin/settings", label: "Paramètres", icon: "Cog" },
     { href: "/admin/users", label: "Utilisateurs", icon: "Users" },

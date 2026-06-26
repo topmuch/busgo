@@ -747,6 +747,48 @@ export default function EmbarquementPage() {
               });
               // Refresh trajet to reflect status change in seat map
               fetchTrajet();
+
+              // ─── Auto-compensation check ────────────────────────
+              // If passenger had GPS tracking active, check eligibility
+              const trackingState = agentTracking.state.locations.get(bookingId);
+              if (trackingState) {
+                try {
+                  const compRes = await fetch(
+                    "/api/compensations/attribute?XTransformPort=3000",
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        billetId: bookingId,
+                        tenantId: session?.user?.tenantId,
+                        eligibility: {
+                          hadGpsTracking: true,
+                          lastDistanceMeters: trackingState.distanceMeters,
+                          lastEtaMinutes: trackingState.etaMinutes,
+                          wasMovingTowardsQuay:
+                            !trackingState.isStatic && !trackingState.isStale,
+                        },
+                      }),
+                    }
+                  );
+                  if (compRes.ok) {
+                    const compData = await compRes.json();
+                    if (compData.ok) {
+                      toast.success("Bon d'achat attribué", {
+                        description: `Le passager reçoit ${compData.amountFcfa?.toLocaleString("fr-FR")} FCFA (code ${compData.voucherCode}).`,
+                        duration: 8000,
+                      });
+                    } else if (compData.reason !== "no_gps_tracking") {
+                      // Log non-eligibility (but don't toast — silent)
+                      console.log(
+                        `[COMPENSATION] Not eligible: ${compData.reason}`
+                      );
+                    }
+                  }
+                } catch (err) {
+                  console.error("[COMPENSATION_ERROR]", err);
+                }
+              }
             } else {
               toast.error("Billet non mis à jour", {
                 description: "Le passager a été notifié mais le statut n'a pas pu être persisté.",

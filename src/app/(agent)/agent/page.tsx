@@ -10,6 +10,7 @@ import {
 } from "@/components/dashboard/design-system";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { SponsoredBannerList } from "@/components/sponsor/sponsored-banner-list";
 
 export const dynamic = "force-dynamic";
 
@@ -139,6 +140,9 @@ export default async function AgentDashboard() {
 
       {/* ─── Main Content ─── */}
       <div className="px-6 space-y-6">
+        {/* ─── Sponsored Offers (Multi-PWA module) ──────────────── */}
+        <SponsoredBannerList pwa="agent" compact max={2} />
+
         {/* Prochains départs */}
         <ContentCard
           title="Prochains départs"

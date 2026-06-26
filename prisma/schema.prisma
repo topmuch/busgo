@@ -60,6 +60,8 @@ model Tenant {
   invoices             Invoice[]
   notificationTemplates NotificationTemplate[]
   auditLogs            AuditLog[]
+  compensations        Compensation[]
+  sponsoredOffers      SponsoredOffer[]
 }
 
 model User {
@@ -78,6 +80,7 @@ model User {
   billets         Billet[] @relation("Client")
   drivenTrajets   Trajet[] @relation("TrajetDriver")
   auditLogs       AuditLog[]
+  compensations   Compensation[] @relation("ClientCompensations")
 }
 
 // Role values: superadmin, admin, agent, client
@@ -129,6 +132,8 @@ model Billet {
   qrCode       String   @unique
   status       String   @default("sold")
   createdAt    DateTime @default(now())
+
+  compensations Compensation[]
 }
 
 // BilletStatus values: sold, boarded, absent, cancelled
@@ -278,10 +283,163 @@ model AuditLog {
 
   user        User     @relation(fields: [userId], references: [id])
 
+  compensations Compensation[]
+
   @@index([action])
   @@index([entityType])
   @@index([tenantId])
   @@index([createdAt])
 
   @@index([userId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE "COMPENSATION RETARD MANQUÉ"
+// ═══════════════════════════════════════════════════════════════
+// Quand l'agent clique "Le bus part" → NO_SHOW, si le passager
+// avait partagé sa position GPS live et était en mouvement vers
+// le quai, il reçoit automatiquement un bon d'achat (voucher)
+// pour un trajet futur. Cela corrige l'injustice d'un départ
+// prématuré et fidélise le passager.
+// ═══════════════════════════════════════════════════════════════
+
+model Compensation {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+
+  // Lien vers le billet manqué
+  billetId      String
+  billet        Billet   @relation(fields: [billetId], references: [id])
+
+  // Bénéficiaire
+  clientId      String
+  client        User     @relation("ClientCompensations", fields: [clientId], references: [id])
+
+  // Détails du bon
+  amountFcfa    Int      // valeur du bon (ex: 50% du prix du billet)
+  reason        String   @default("missed_delay") // missed_delay, manual, goodwill
+  status        String   @default("pending") // pending, issued, redeemed, expired, cancelled
+
+  // Preuves d'éligibilité (snapshot au moment du NO_SHOW)
+  hadGpsTracking Boolean @default(false)
+  lastDistanceMeters Int?
+  lastEtaMinutes Int?
+  wasMovingTowardsQuay Boolean @default(false)
+
+  // Code unique pour utilisation au guichet
+  voucherCode   String   @unique
+  redeemedAt    DateTime?
+  redeemedByBilletId String? // si réutilisé sur un nouveau billet
+
+  // Audit
+  issuedBy      String?  // userId de l'agent ou "auto"
+  issuedByAudit String?
+  auditLog      AuditLog? @relation(fields: [issuedByAudit], references: [id])
+  notes         String?
+
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime // validité 90 jours par défaut
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([status])
+  @@index([voucherCode])
+  @@index([billetId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE "OFFRES SPONSORISÉES MULTI-PWA"
+// ═══════════════════════════════════════════════════════════════
+// Bannières publicitaires affichées dans les PWA Client + Agent.
+// Peuvent être cross-tenant (SuperAdmin gère) ou intra-tenant
+// (Admin gère). Tracking impressions + clics pour facturation.
+// ═══════════════════════════════════════════════════════════════
+
+model SponsoredOffer {
+  id            String   @id @default(cuid())
+
+  // Scope : global (tous tenants) ou specific tenant
+  scope         String   @default("tenant") // global, tenant
+  tenantId      String?  // null si scope=global
+  tenant        Tenant?  @relation(fields: [tenantId], references: [id])
+
+  // Ciblage PWA
+  targetPwa     String   @default("client") // client, agent, both
+
+  // Contenu
+  title         String
+  description   String?
+  imageUrl      String?
+  ctaLabel      String   @default("En savoir plus")
+  ctaUrl        String
+  bgColor       String   @default("#4A90E2")
+  textColor     String   @default("#ffffff")
+
+  // Période
+  startDate     DateTime @default(now())
+  endDate       DateTime
+  isActive      Boolean  @default(true)
+
+  // Budget & limites
+  maxImpressions Int?   // null = illimité
+  maxClicks      Int?
+
+  // Priorité d'affichage (plus élevé = prioritaire)
+  priority      Int      @default(50)
+
+  // Métriques (incrémentées via API track)
+  impressionsCount Int   @default(0)
+  clicksCount      Int   @default(0)
+
+  // Audit
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  impressions   OfferImpression[]
+  clicks        OfferClick[]
+
+  @@index([tenantId])
+  @@index([scope])
+  @@index([targetPwa])
+  @@index([isActive])
+  @@index([priority])
+}
+
+model OfferImpression {
+  id            String   @id @default(cuid())
+  offerId       String
+  offer         SponsoredOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  userId        String?
+  tenantId      String?
+  pwa           String   // client, agent
+  userAgent     String?
+  sessionId     String?
+
+  createdAt     DateTime @default(now())
+
+  @@index([offerId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model OfferClick {
+  id            String   @id @default(cuid())
+  offerId       String
+  offer         SponsoredOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  userId        String?
+  tenantId      String?
+  pwa           String   // client, agent
+  userAgent     String?
+  sessionId     String?
+  referer       String?
+
+  createdAt     DateTime @default(now())
+
+  @@index([offerId])
+  @@index([userId])
+  @@index([createdAt])
 }

@@ -1,5 +1,24 @@
 import { createServer } from "http";
 import { Server } from "socket.io";
+import {
+  TrackingRecord,
+  trackingChannelName,
+  startTracking,
+  stopTracking,
+  updateCoord,
+  setEta,
+  getTracking,
+  getAllTrackingForTrip,
+  getAllTrackingForTenant,
+  validateBookingTrip,
+  startTtlSweeper,
+  isStale,
+  haversineMeters,
+  TRACKING_TTL_MS,
+  ETA_REFRESH_INTERVAL_MS,
+  STATIC_THRESHOLD_MS,
+} from "./tracking-store";
+import { computeEta } from "./eta-service";
 
 const httpServer = createServer();
 const io = new Server(httpServer, {
@@ -11,6 +30,34 @@ const io = new Server(httpServer, {
   pingTimeout: 60000,
   pingInterval: 25000,
 });
+
+// ─────────────────────────────────────────────────────────────
+//  Quay/bus destination cache per trip (set by agent UI)
+//  Key: tripId → { lat, lng, label }
+//  In-memory only — not persisted.
+// ─────────────────────────────────────────────────────────────
+const quayCache = new Map<string, { lat: number; lng: number; label?: string }>();
+
+// ─────────────────────────────────────────────────────────────
+//  TTL sweeper — auto-destroy tracking after 45 min
+// ─────────────────────────────────────────────────────────────
+startTtlSweeper((rec: TrackingRecord) => {
+  const channel = trackingChannelName(rec.bookingId, rec.tripId);
+  io.to(`tenant:${rec.tenantId}`).emit("tracking_stopped", {
+    bookingId: rec.bookingId,
+    tripId: rec.tripId,
+    reason: "timeout_45min",
+    message: "Partage arrêté automatiquement (durée max 45 min atteinte)",
+  });
+  io.to(channel).emit("tracking_stopped", {
+    bookingId: rec.bookingId,
+    reason: "timeout_45min",
+    message: "Partage arrêté automatiquement (durée max 45 min atteinte)",
+  });
+  console.log(`[TRACKING_EXPIRED] booking=${rec.bookingId} (45min TTL)`);
+});
+
+console.log(`[TRACKING] TTL sweeper started — auto-expire after ${TRACKING_TTL_MS / 60000} min`);
 
 // ═══════════════════════════════════════════════════════════
 // Types
@@ -286,6 +333,343 @@ io.on("connection", (socket) => {
           timestamp: new Date().toISOString(),
         });
       }
+    }
+  );
+
+  // ═══════════════════════════════════════════════════════════
+  // GPS LIVE TRACKING EVENTS
+  // Privacy by Design — RAM only, never persisted to DB
+  // ═══════════════════════════════════════════════════════════
+
+  // ─── Set the quay/bus destination for a trip (agent UI) ───
+  socket.on(
+    "set_quay_position",
+    (data: { tripId: string; lat: number; lng: number; label?: string }) => {
+      quayCache.set(data.tripId, { lat: data.lat, lng: data.lng, label: data.label });
+      console.log(`[QUAY_SET] trip=${data.tripId} → ${data.lat},${data.lng}`);
+    }
+  );
+
+  // ─── Start tracking session (client) ───
+  socket.on(
+    "start_tracking",
+    async (data: {
+      bookingId: string;
+      tripId: string;
+      clientId?: string;
+      clientName?: string;
+    }) => {
+      const { bookingId, tripId } = data;
+
+      // 1) Validation middleware: booking must belong to trip
+      const validation = await validateBookingTrip(bookingId, tripId);
+      if (!validation.ok) {
+        // Silent reject per spec — notify client only
+        socket.emit("tracking_rejected", {
+          bookingId,
+          reason: validation.reason,
+          message:
+            validation.reason === "trip_departed"
+              ? "Le bus est déjà parti. Partage arrêté."
+              : validation.reason === "trip_mismatch"
+                ? "Billet invalide pour ce trajet."
+                : "Partage impossible.",
+        });
+        return;
+      }
+
+      // 2) Validate client identity
+      const rec = validation.record!;
+      if (data.clientId && data.clientId !== rec.clientId) {
+        socket.emit("tracking_rejected", {
+          bookingId,
+          reason: "client_mismatch",
+          message: "Ce billet n'appartient pas à cet utilisateur.",
+        });
+        return;
+      }
+
+      // 3) Start tracking
+      startTracking(bookingId, tripId, rec.tenantId, rec.clientId, rec.clientName);
+
+      // 4) Join the channel
+      const channel = trackingChannelName(bookingId, tripId);
+      socket.join(channel);
+      socket.join(`tenant:${rec.tenantId}`);
+
+      // 5) Confirm to client
+      socket.emit("tracking_started", {
+        bookingId,
+        tripId,
+        channel,
+        expiresAt: Date.now() + TRACKING_TTL_MS,
+        ttlMs: TRACKING_TTL_MS,
+      });
+
+      // 6) Notify agent (tenant room) that passenger started sharing
+      io.to(`tenant:${rec.tenantId}`).emit("passenger_tracking_started", {
+        bookingId,
+        tripId,
+        clientId: rec.clientId,
+        clientName: rec.clientName,
+        timestamp: new Date().toISOString(),
+      });
+
+      console.log(`[TRACKING_START] booking=${bookingId} trip=${tripId} client=${rec.clientId}`);
+    }
+  );
+
+  // ─── GPS update from client → broadcast to agent ───
+  socket.on(
+    "gps_update",
+    async (data: {
+      bookingId: string;
+      lat: number;
+      lng: number;
+      accuracy: number;
+      timestamp: number;
+    }) => {
+      const rec = getTracking(data.bookingId);
+      if (!rec) {
+        // No active tracking — silent reject
+        return;
+      }
+
+      // 1) Update coord (RAM only)
+      updateCoord(data.bookingId, {
+        lat: data.lat,
+        lng: data.lng,
+        accuracy: data.accuracy,
+        timestamp: data.timestamp,
+      });
+
+      // 2) Compute ETA via OSRM (or Haversine fallback) — throttled to 30s
+      const quay = quayCache.get(rec.tripId);
+      let etaMinutes: number | undefined;
+      let distanceMeters: number | undefined;
+      const shouldComputeEta =
+        quay &&
+        (!rec.etaComputedAt ||
+          Date.now() - rec.etaComputedAt > ETA_REFRESH_INTERVAL_MS);
+
+      if (shouldComputeEta && quay) {
+        try {
+          const eta = await computeEta(
+            data.lat, data.lng,
+            quay.lat, quay.lng
+          );
+          etaMinutes = eta.etaMinutes;
+          distanceMeters = eta.distanceMeters;
+          setEta(data.bookingId, etaMinutes, distanceMeters);
+        } catch (err) {
+          console.error("[ETA_ERROR]", err);
+        }
+      } else if (rec.lastEtaMinutes !== undefined) {
+        etaMinutes = rec.lastEtaMinutes;
+        distanceMeters = rec.lastDistanceMeters;
+      }
+
+      // 3) Distance even without quay (Haversine to last known quay if any)
+      if (distanceMeters === undefined && quay) {
+        distanceMeters = haversineMeters(data.lat, data.lng, quay.lat, quay.lng);
+      }
+
+      // 4) Build passenger_location payload for agent
+      const updated = getTracking(data.bookingId)!;
+      const payload = {
+        bookingId: data.bookingId,
+        tripId: rec.tripId,
+        clientId: rec.clientId,
+        clientName: rec.clientName,
+        lat: data.lat,
+        lng: data.lng,
+        accuracy: data.accuracy,
+        etaMinutes,
+        distanceMeters,
+        last_seen: new Date().toISOString(),
+        isStale: false,
+        isStatic: updated.isStatic === true,
+      };
+
+      // 5) Broadcast to tenant room (agent dashboard)
+      io.to(`tenant:${rec.tenantId}`).emit("passenger_location", payload);
+
+      // 6) Also broadcast to the specific tracking channel (agent modal)
+      const channel = trackingChannelName(rec.bookingId, rec.tripId);
+      io.to(channel).emit("passenger_location", payload);
+
+      // 7) Static detection — warn agent once
+      if (
+        updated.isStatic === true &&
+        !updated.staticWarningSentAt &&
+        Date.now() - updated.startedAt > STATIC_THRESHOLD_MS
+      ) {
+        updated.staticWarningSentAt = Date.now();
+        io.to(`tenant:${rec.tenantId}`).emit("passenger_static_warning", {
+          bookingId: rec.bookingId,
+          tripId: rec.tripId,
+          clientId: rec.clientId,
+          clientName: rec.clientName,
+          message: `⚠️ ${rec.clientName ?? "Passager"} semble immobile depuis 10 min. Risque d'abandon.`,
+          timestamp: new Date().toISOString(),
+        });
+        console.log(`[STATIC_WARNING] booking=${data.bookingId}`);
+      }
+    }
+  );
+
+  // ─── Stop tracking (client manual stop) ───
+  socket.on(
+    "stop_tracking",
+    (data: { bookingId: string; reason?: "manual" | "boarding" | "completed" }) => {
+      const rec = getTracking(data.bookingId);
+      if (!rec) return;
+      const reason = data.reason ?? "manual";
+      stopTracking(data.bookingId, reason);
+
+      // Notify agent
+      io.to(`tenant:${rec.tenantId}`).emit("tracking_stopped", {
+        bookingId: data.bookingId,
+        tripId: rec.tripId,
+        reason,
+        message:
+          reason === "boarding"
+            ? `${rec.clientName ?? "Passager"} a embarqué — partage arrêté.`
+            : reason === "completed"
+              ? "Voyage terminé — partage arrêté."
+              : `${rec.clientName ?? "Passager"} a arrêté le partage.`,
+      });
+
+      // Notify client (ack)
+      socket.emit("tracking_stopped", {
+        bookingId: data.bookingId,
+        reason,
+        message: "Partage arrêté.",
+      });
+
+      console.log(`[TRACKING_STOP] booking=${data.bookingId} reason=${reason}`);
+    }
+  );
+
+  // ─── Agent cancels (e.g. "Le bus part") ───
+  socket.on(
+    "agent_cancel_tracking",
+    async (data: {
+      bookingId: string;
+      tripId: string;
+      tenantId: string;
+      action: "wait" | "leave";
+    }) => {
+      const rec = getTracking(data.bookingId);
+
+      if (data.action === "wait") {
+        // Send push to client: "L'agent confirme qu'il vous attend"
+        const channel = rec
+          ? trackingChannelName(rec.bookingId, rec.tripId)
+          : trackingChannelName(data.bookingId, data.tripId);
+        io.to(channel).emit("agent_message", {
+          bookingId: data.bookingId,
+          type: "wait",
+          message: "L'agent confirme qu'il vous attend. Dépêchez-vous !",
+          timestamp: new Date().toISOString(),
+        });
+        console.log(`[AGENT_WAIT] booking=${data.bookingId}`);
+      } else if (data.action === "leave") {
+        // Send push to client + mark NO_SHOW via API call
+        if (rec) {
+          const channel = trackingChannelName(rec.bookingId, rec.tripId);
+          io.to(channel).emit("agent_message", {
+            bookingId: data.bookingId,
+            type: "leave",
+            message: "Désolé, le bus ne peut plus attendre. Votre billet est annulé.",
+            timestamp: new Date().toISOString(),
+          });
+          io.to(channel).emit("tracking_stopped", {
+            bookingId: data.bookingId,
+            reason: "no_show",
+            message: "Le bus est parti. Partage arrêté.",
+          });
+
+          // Stop tracking (RAM cleanup)
+          stopTracking(data.bookingId, "no_show");
+
+          // Notify agent room
+          io.to(`tenant:${data.tenantId}`).emit("tracking_stopped", {
+            bookingId: data.bookingId,
+            tripId: data.tripId,
+            reason: "no_show",
+            message: "Bus parti — billet marqué NO_SHOW.",
+          });
+
+          console.log(`[AGENT_LEAVE] booking=${data.bookingId} → NO_SHOW`);
+        }
+      }
+    }
+  );
+
+  // ─── Agent subscribes to live tracking updates for a trip ───
+  socket.on(
+    "subscribe_trip_tracking",
+    (data: { tripId: string; tenantId: string }) => {
+      // Agent gets all passenger_location events for this trip
+      // We use a dedicated room: trip_tracking:{tripId}
+      socket.join(`trip_tracking:${data.tripId}`);
+
+      // Send initial snapshot of currently active trackers
+      const actives = getAllTrackingForTrip(data.tripId);
+      for (const rec of actives) {
+        if (!rec.lastCoord) continue;
+        socket.emit("passenger_location", {
+          bookingId: rec.bookingId,
+          tripId: rec.tripId,
+          clientId: rec.clientId,
+          clientName: rec.clientName,
+          lat: rec.lastCoord.lat,
+          lng: rec.lastCoord.lng,
+          accuracy: rec.lastCoord.accuracy,
+          etaMinutes: rec.lastEtaMinutes,
+          distanceMeters: rec.lastDistanceMeters,
+          last_seen: new Date(rec.lastUpdateAt).toISOString(),
+          isStale: isStale(rec),
+          isStatic: rec.isStatic === true,
+        });
+      }
+    }
+  );
+
+  socket.on(
+    "unsubscribe_trip_tracking",
+    (data: { tripId: string }) => {
+      socket.leave(`trip_tracking:${data.tripId}`);
+    }
+  );
+
+  // ─── Get aggregated view (multi-passenger, 3+) ───
+  socket.on(
+    "get_aggregated_tracking",
+    (data: { tenantId: string; tripId?: string }, ack?: (payload: unknown) => void) => {
+      const list = data.tripId
+        ? getAllTrackingForTrip(data.tripId)
+        : getAllTrackingForTenant(data.tenantId);
+
+      const payload = list
+        .filter((r) => r.lastCoord)
+        .map((r) => ({
+          bookingId: r.bookingId,
+          tripId: r.tripId,
+          clientId: r.clientId,
+          clientName: r.clientName,
+          lat: r.lastCoord!.lat,
+          lng: r.lastCoord!.lng,
+          accuracy: r.lastCoord!.accuracy,
+          etaMinutes: r.lastEtaMinutes,
+          distanceMeters: r.lastDistanceMeters,
+          last_seen: new Date(r.lastUpdateAt).toISOString(),
+          isStale: isStale(r),
+          isStatic: r.isStatic === true,
+        }));
+
+      if (ack) ack(payload);
     }
   );
 

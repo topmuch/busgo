@@ -165,3 +165,13 @@ Changes:
 - All tables have max-h-96 overflow-y-auto, empty states with icons
 - Skeleton loading state, 404 state, responsive design
 - TypeScript check passed (no errors from modified files)
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Module "Partage de Position GPS Live" (Bus Go) — Privacy by Design, WebSockets temps réel, Leaflet+OSRM, RAM-only
+
+Work Log:
+- Read existing socket server (mini-services/bus-go-socket), client page, agent embarquement page, prisma schema
+- Installed leaflet@1.9.4 + react-leaflet@5.0.0 + @types/leaflet
+- Plan: 12 sub-tasks (backend socket → API ETA → hook → 3 components → 2 page integrations → tests → RGPD doc)
